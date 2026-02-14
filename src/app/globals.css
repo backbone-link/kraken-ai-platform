@@ -134,6 +134,99 @@ body {
   animation: gentle-pulse 3s ease-in-out infinite;
 }
 
+/* ── Execution Visualization ── */
+
+/* Node glow for currently executing */
+@keyframes node-executing-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 8px rgba(96, 165, 250, 0.3),
+      0 0 20px rgba(96, 165, 250, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 12px rgba(96, 165, 250, 0.5),
+      0 0 32px rgba(96, 165, 250, 0.25);
+  }
+}
+
+.node-executing {
+  animation: node-executing-glow 2s ease-in-out infinite;
+}
+
+/* Node completed state */
+.node-completed {
+  box-shadow: 0 0 10px rgba(74, 202, 138, 0.2);
+}
+
+/* Node error state */
+.node-error {
+  box-shadow: 0 0 10px rgba(224, 100, 100, 0.25);
+}
+
+/* Marching ants for active edges */
+@keyframes marching-ants {
+  to { stroke-dashoffset: -20; }
+}
+
+.react-flow__edge-path.edge-executing {
+  stroke: #60a5fa !important;
+  stroke-width: 2.5 !important;
+  stroke-dasharray: 6 4 !important;
+  animation: marching-ants 0.8s linear infinite !important;
+}
+
+.react-flow__edge-path.edge-completed {
+  stroke: rgba(74, 202, 138, 0.5) !important;
+  stroke-width: 2 !important;
+}
+
+/* Run ID badge on nodes */
+@keyframes badge-pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; }
+}
+
+.run-id-badge {
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+/* Trace step highlight for currently executing */
+@keyframes trace-step-glow {
+  0%, 100% { background-color: rgba(96, 165, 250, 0.06); }
+  50% { background-color: rgba(96, 165, 250, 0.12); }
+}
+
+.trace-step-executing {
+  animation: trace-step-glow 2s ease-in-out infinite;
+  border-left: 2px solid #60a5fa;
+}
+
+/* Timeline bar fill animation */
+@keyframes timeline-fill {
+  from { width: 0; }
+}
+
+.timeline-bar-animate {
+  animation: timeline-fill 0.6s ease-out forwards;
+}
+
+/* Stagger entrance for trace steps */
+@keyframes trace-step-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.trace-step-enter {
+  animation: trace-step-enter 0.35s ease-out forwards;
+}
+
 /* Selection */
 ::selection {
   background: rgba(232, 98, 44, 0.3);

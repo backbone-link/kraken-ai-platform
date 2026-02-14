@@ -12,7 +12,7 @@ export interface Agent {
   nextRun?: string;
   successRate: number;
   totalRuns: number;
-  avgLatency: number;
+  avgDuration: number;
   triggers: TriggerType[];
   version: string;
   source: IntegrationSource;
@@ -106,7 +106,7 @@ export interface IntegrationConfigField {
 export interface Integration {
   id: string;
   name: string;
-  category: "data-source" | "tool" | "action";
+  category: "data-source" | "tool" | "action" | "skill";
   type: string;
   status: "connected" | "disconnected" | "error";
   lastSync?: string;
@@ -119,6 +119,8 @@ export interface Integration {
   mcpEndpoint?: string;
   version?: string;
   config?: IntegrationConfigField[];
+  skillContent?: string;
+  githubUrl?: string;
 }
 
 // ─── Pipeline Types ───
@@ -227,7 +229,7 @@ export const agents: Agent[] = [
     nextRun: "2026-02-13T15:15:00Z",
     successRate: 98.7,
     totalRuns: 23,
-    avgLatency: 2400,
+    avgDuration: 2400,
     triggers: ["scheduled", "webhook"],
     version: "2.1.0",
     source: "kraken",
@@ -242,7 +244,7 @@ export const agents: Agent[] = [
     nextRun: "2026-02-13T14:50:00Z",
     successRate: 99.2,
     totalRuns: 27,
-    avgLatency: 1800,
+    avgDuration: 1800,
     triggers: ["scheduled", "event-driven"],
     version: "1.8.3",
     source: "kraken",
@@ -257,7 +259,7 @@ export const agents: Agent[] = [
     nextRun: "2026-02-14T06:00:00Z",
     successRate: 97.1,
     totalRuns: 1,
-    avgLatency: 8500,
+    avgDuration: 3_840_000,
     triggers: ["scheduled"],
     version: "1.3.0",
     source: "kraken",
@@ -271,7 +273,7 @@ export const agents: Agent[] = [
     lastRun: "2026-02-13T14:32:00Z",
     successRate: 94.5,
     totalRuns: 19,
-    avgLatency: 950,
+    avgDuration: 950,
     triggers: ["webhook", "event-driven"],
     version: "3.0.1",
     source: "community",
@@ -286,7 +288,7 @@ export const agents: Agent[] = [
     lastRun: "2026-02-13T10:30:00Z",
     successRate: 96.8,
     totalRuns: 4,
-    avgLatency: 3200,
+    avgDuration: 3200,
     triggers: ["scheduled", "manual"],
     version: "1.1.0",
     source: "community",
@@ -339,7 +341,7 @@ export const recentRuns: AgentRun[] = [
   { id: "run-004", agentId: "agt-004", agentName: "Customer Support Triage", status: "success", startedAt: "2026-02-13T14:12:00Z", duration: 920, tokensUsed: 1950, cost: 0.03, trigger: "webhook" },
   { id: "run-008", agentId: "agt-002", agentName: "Inventory Intelligence", status: "success", startedAt: "2026-02-13T13:50:00Z", duration: 1680, tokensUsed: 4600, cost: 0.11, trigger: "scheduled" },
   { id: "run-005", agentId: "agt-001", agentName: "Market Intelligence", status: "error", startedAt: "2026-02-13T13:15:00Z", duration: 4500, tokensUsed: 3100, cost: 0.09, trigger: "scheduled" },
-  { id: "run-006", agentId: "agt-003", agentName: "Demand Forecasting", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 8200, tokensUsed: 18400, cost: 0.52, trigger: "scheduled" },
+  { id: "run-006", agentId: "agt-003", agentName: "Demand Forecasting", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 3_900_000, tokensUsed: 384_000, cost: 12.48, trigger: "scheduled" },
   { id: "run-007", agentId: "agt-005", agentName: "Price Optimization", status: "success", startedAt: "2026-02-13T10:30:00Z", duration: 3100, tokensUsed: 7800, cost: 0.22, trigger: "manual" },
 ];
 
@@ -476,7 +478,7 @@ export const agentFlows: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] }
 export const dashboardMetrics = {
   totalRunsToday: 147,
   successRate: 97.8,
-  avgLatency: 2180,
+  avgDuration: 2180,
   costToday: 18.42,
   activeAgents: 3,
   totalAgents: 5,
@@ -493,11 +495,11 @@ export const dashboardMetrics = {
   },
   dailyUsagePercent: 62,
   usageByAgent: [
-    { agent: "Market Intelligence", tokens: 412_000, percentage: 33.4 },
-    { agent: "Inventory Intelligence", tokens: 348_000, percentage: 28.2 },
-    { agent: "Customer Support Triage", tokens: 267_000, percentage: 21.7 },
-    { agent: "Demand Forecasting", tokens: 148_000, percentage: 12.0 },
-    { agent: "Price Optimization", tokens: 58_000, percentage: 4.7 },
+    { agent: "Market Intelligence", tokens: 412_000, percentage: 28.0 },
+    { agent: "Inventory Intelligence", tokens: 348_000, percentage: 23.7 },
+    { agent: "Customer Support Triage", tokens: 267_000, percentage: 18.2 },
+    { agent: "Demand Forecasting", tokens: 384_000, percentage: 26.1 },
+    { agent: "Price Optimization", tokens: 58_000, percentage: 4.0 },
   ],
 };
 
@@ -529,7 +531,7 @@ export const tokenUsageTimeSeries: TimeSeriesPoint[] = Array.from({ length: 7 },
   };
 });
 
-export const latencyTimeSeries: TimeSeriesPoint[] = Array.from({ length: 24 }, (_, i) => ({
+export const durationTimeSeries: TimeSeriesPoint[] = Array.from({ length: 24 }, (_, i) => ({
   time: `${String(i).padStart(2, "0")}:00`,
   value: Math.floor(1500 + Math.random() * 1000 + (i >= 8 && i <= 18 ? 500 : 0)),
   value2: Math.floor(3000 + Math.random() * 2000 + (i >= 8 && i <= 18 ? 1500 : 0)),
@@ -553,7 +555,7 @@ export const agentObservabilityMetrics = agents.map((a) => {
     name: a.name,
     totalCalls: Math.floor(a.totalRuns * 3.2),
     errorRate: (100 - a.successRate).toFixed(1),
-    avgLatency: a.avgLatency,
+    avgDuration: a.avgDuration,
     tokensIn,
     tokensOut,
     tokensUsed: totalTokens,
@@ -566,7 +568,7 @@ export const auditTrail: AuditEntry[] = [
   { id: "aud-2", timestamp: "2026-02-13T14:20:00Z", agent: "Inventory Intelligence", action: "sync_inventory", status: "success", details: "Synced 1,247 SKUs across 3 warehouses", duration: 1750 },
   { id: "aud-3", timestamp: "2026-02-13T14:15:00Z", agent: "Market Intelligence", action: "analyze_market", status: "success", details: "Processed 342 competitor price points, 2 arbitrage opportunities found", duration: 2340 },
   { id: "aud-4", timestamp: "2026-02-13T13:15:00Z", agent: "Market Intelligence", action: "fetch_data", status: "error", details: "Amazon SP-API rate limit exceeded (429). Retry in 60s.", duration: 4500 },
-  { id: "aud-5", timestamp: "2026-02-13T12:00:00Z", agent: "Demand Forecasting", action: "generate_forecast", status: "success", details: "7-day forecast generated for 89 product categories", duration: 8200 },
+  { id: "aud-5", timestamp: "2026-02-13T12:00:00Z", agent: "Demand Forecasting", action: "generate_forecast", status: "success", details: "7-day forecast generated for 89 product categories", duration: 3_900_000 },
   { id: "aud-6", timestamp: "2026-02-13T10:30:00Z", agent: "Price Optimization", action: "optimize_prices", status: "warning", details: "Optimization complete, 3 products hit minimum price floor", duration: 3100 },
   { id: "aud-7", timestamp: "2026-02-12T22:00:00Z", agent: "Inventory Intelligence", action: "sync_inventory", status: "success", details: "Nightly full sync completed — 4,891 SKUs processed", duration: 12400 },
   { id: "aud-8", timestamp: "2026-02-12T18:00:00Z", agent: "Market Intelligence", action: "analyze_market", status: "success", details: "End-of-day market summary generated", duration: 3800 },
@@ -578,7 +580,7 @@ export const pluginStores: PluginStore[] = [
     name: "Kraken Verified",
     source: "kraken",
     url: "https://plugins.kraken-ai.com",
-    description: "Official connectors maintained and verified by the Kraken OS team",
+    description: "Official connectors maintained and verified by the Kraken AI team",
     pluginCount: 42,
     installedCount: 10,
     connected: true,
@@ -710,6 +712,58 @@ export const integrations: Integration[] = [
   // ─── Actions: Available ───
   { id: "int-14", name: "Webhook Dispatcher", category: "action", type: "Integration", status: "disconnected", description: "Dispatch webhooks to external systems on trigger events", subscribed: false, enabled: false, source: "kraken", storeId: "store-kraken", version: "1.4.0" },
   { id: "int-14b", name: "Microsoft Teams", category: "action", type: "Notification", status: "disconnected", description: "Post alerts and reports to Microsoft Teams channels", subscribed: false, enabled: false, source: "community", sourceDetail: "ms-contrib", storeId: "store-datastack", version: "0.7.0" },
+  // ─── Skills: Installed ───
+  { id: "int-sk1", name: "Competitor Deep Dive", category: "skill", type: "Analysis", status: "connected", description: "Multi-source competitor analysis with pricing matrix, trend identification, and market positioning insights", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "2.0.1", githubUrl: "https://github.com/kraken-ai/skills/tree/main/competitor-deep-dive", skillContent: `# Competitor Deep Dive
+
+This skill performs comprehensive competitor analysis. When activated, follow these instructions exactly.
+
+## Gathering Intelligence
+
+Start by identifying the target company and resolving its direct competitors. If no competitors are specified, detect them automatically using the connected data sources. Pull data from all available integrations — prioritize web search results, pricing pages, review aggregators, and job board postings. For public companies, also pull SEC filings and earnings transcripts when available.
+
+Never fabricate data points. If a source is unavailable or returns incomplete data, note the gap explicitly in the output rather than guessing.
+
+## Building the Pricing Matrix
+
+Collect current pricing across all product tiers for the target and each competitor. Normalize pricing to a common unit (monthly per-seat, annual flat, usage-based) so tiers are directly comparable. Flag any recent price changes detected in the lookback window and include the delta.
+
+When pricing is not publicly listed, mark the tier as \`undisclosed\` and note whether a "Contact Sales" gate was observed.
+
+## Trend Analysis
+
+Compare the current data snapshot against historical baselines from the lookback period. Compute directional trends for: market share estimates, pricing movement, product feature velocity (based on changelog or release notes), and hiring signals from job postings.
+
+Present trends as directional indicators (\`rising\`, \`stable\`, \`declining\`) with supporting evidence, not raw numbers alone.
+
+## SWOT and Positioning
+
+Run a SWOT analysis for the target company relative to the competitive set. Keep each quadrant to 3-5 bullet points maximum — be specific, not generic. Generate a positioning summary that identifies the target's primary differentiator and most vulnerable flank.
+
+## Output Format
+
+Structure the final output as:
+- **Executive Summary** — 2-3 sentence overview of the competitive landscape
+- **Pricing Matrix** — Normalized comparison table
+- **Trend Signals** — Directional indicators with evidence
+- **SWOT Analysis** — Four-quadrant breakdown
+- **Recommendations** — 3-5 actionable next steps ranked by impact
+
+Always include a \`confidence_score\` (0.0-1.0) and \`sources_used\` count in the metadata. If confidence falls below 0.5, prepend a warning to the executive summary.
+` },
+  { id: "int-sk2", name: "Report Builder", category: "skill", type: "Output", status: "connected", description: "Generate formatted business intelligence reports from agent run data with charts, summaries, and recommendations", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.8.0" },
+  { id: "int-sk3", name: "Response Drafter", category: "skill", type: "Communication", status: "connected", description: "Context-aware customer response generation with tone matching, knowledge base grounding, and brand voice consistency", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.5.2" },
+  { id: "int-sk4", name: "Price Validator", category: "skill", type: "Compliance", status: "connected", description: "Validate proposed price changes against business rules, margin thresholds, MAP policies, and competitive floor limits", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.3.0" },
+  { id: "int-sk5", name: "Inventory Reconciler", category: "skill", type: "Automation", status: "connected", description: "Cross-channel inventory reconciliation with automatic discrepancy detection and corrective action generation", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.6.0" },
+  { id: "int-sk6", name: "Ticket Summarizer", category: "skill", type: "Communication", status: "connected", description: "Extract priority signals, product category, customer sentiment, and key details from support tickets for fast routing", subscribed: true, enabled: true, source: "community", sourceDetail: "crawl4ai", storeId: "store-crawl4ai", version: "0.9.3" },
+  { id: "int-sk7", name: "Bulk Updater", category: "skill", type: "Automation", status: "connected", description: "Batch operations for inventory adjustments and pricing updates across thousands of SKUs with rollback support", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.2.0" },
+  { id: "int-sk8", name: "Compliance Auditor", category: "skill", type: "Compliance", status: "connected", description: "Generate audit trails, compliance documentation, and regulatory reports for agent operations", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.1.0" },
+  // ─── Skills: Available ───
+  { id: "int-sk9", name: "Demand Prophet", category: "skill", type: "Analysis", status: "disconnected", description: "Statistical demand forecasting with seasonal decomposition, trend projection, and confidence intervals", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", storeId: "store-datastack", version: "0.8.0" },
+  { id: "int-sk10", name: "Market Pulse", category: "skill", type: "Analysis", status: "disconnected", description: "Real-time market trend scanning with signal detection, anomaly alerts, and competitive intelligence feeds", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", storeId: "store-datastack", version: "0.6.1" },
+  { id: "int-sk11", name: "Escalation Brief", category: "skill", type: "Communication", status: "disconnected", description: "Generate context-rich escalation summaries with ticket history, customer profile, and recommended actions", subscribed: false, enabled: false, source: "community", sourceDetail: "crawl4ai", storeId: "store-crawl4ai", version: "0.4.0" },
+  { id: "int-sk12", name: "Safety Scanner", category: "skill", type: "Compliance", status: "disconnected", description: "Content safety, PII detection, prompt injection defense, and policy compliance checking for agent I/O", subscribed: false, enabled: false, source: "kraken", storeId: "store-kraken", version: "2.1.0" },
+  { id: "int-sk13", name: "Price Lab", category: "skill", type: "Optimization", status: "disconnected", description: "Set up and analyze price A/B tests with statistical significance calculation and revenue impact projection", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", storeId: "store-datastack", version: "0.3.0" },
+  { id: "int-sk14", name: "Sentiment Radar", category: "skill", type: "Analysis", status: "disconnected", description: "Multi-channel customer sentiment analysis with trend detection across reviews, tickets, and social mentions", subscribed: false, enabled: false, source: "community", sourceDetail: "crawl4ai", storeId: "store-crawl4ai", version: "0.5.2" },
 ];
 
 export const computeClusters: ComputeCluster[] = [
@@ -1338,7 +1392,7 @@ export interface TraceStep {
   nodeId: string;
   nodeLabel: string;
   nodeType: FlowNode["type"];
-  status: "success" | "error" | "running" | "skipped";
+  status: "success" | "error" | "running" | "skipped" | "pending";
   startedAt: string;
   duration: number;
   input?: string;
@@ -1351,8 +1405,8 @@ export const sampleTrace: TraceStep[] = [
   { id: "ts-3", nodeId: "n3", nodeLabel: "Fetch Market Data", nodeType: "tool", status: "success", startedAt: "2026-02-13T14:15:01Z", duration: 820, input: "GET amazon-sp-api/pricing?categories=electronics", output: "342 price points retrieved" },
   { id: "ts-4", nodeId: "n4", nodeLabel: "Fetch Competitor Prices", nodeType: "tool", status: "success", startedAt: "2026-02-13T14:15:01Z", duration: 640, input: "Scraping 5 competitor storefronts", output: "189 competitor prices collected" },
   { id: "ts-5", nodeId: "n5", nodeLabel: "GPT-5.2: Analyze Trends", nodeType: "model", status: "success", startedAt: "2026-02-13T14:15:02Z", duration: 1100, input: "Analyze 531 price points for arbitrage...", output: "2 arbitrage opportunities identified with >15% margin" },
-  { id: "ts-6", nodeId: "n6", nodeLabel: "Arbitrage Found?", nodeType: "condition", status: "success", startedAt: "2026-02-13T14:15:03Z", duration: 3, input: "opportunities.length > 0", output: "true → Yes branch" },
-  { id: "ts-7", nodeId: "n7", nodeLabel: "Output Validation", nodeType: "security", status: "success", startedAt: "2026-02-13T14:15:04Z", duration: 30, input: "Validating outputs for PII/sensitive data", output: "No sensitive data detected" },
+  { id: "ts-6", nodeId: "n7", nodeLabel: "Output Validation", nodeType: "security", status: "success", startedAt: "2026-02-13T14:15:03Z", duration: 30, input: "Validating outputs for PII/sensitive data", output: "No sensitive data detected" },
+  { id: "ts-7", nodeId: "n6", nodeLabel: "Arbitrage Found?", nodeType: "condition", status: "success", startedAt: "2026-02-13T14:15:04Z", duration: 3, input: "opportunities.length > 0", output: "true → Yes branch" },
   { id: "ts-8", nodeId: "n8", nodeLabel: "Send Slack Alert", nodeType: "action", status: "success", startedAt: "2026-02-13T14:15:04Z", duration: 210, input: "Post to #market-alerts", output: "Message sent to #market-alerts" },
 ];
 
@@ -1431,9 +1485,9 @@ export const detailedAgentRuns: DetailedAgentRun[] = [
         toolInfo: { toolName: "Web Scraper", endpoint: "POST /scrape/batch", httpStatus: 200, request: '{"targets": 5, "selector": "product-price"}', response: '{"results": 189, "failed": 0}' } },
       { id: "dt-001-5", nodeId: "n5", nodeLabel: "GPT-5.2: Analyze Trends", nodeType: "model", status: "success", startedAt: "2026-02-13T14:15:02Z", duration: 1100, input: "Analyze 531 price points for arbitrage...", output: "2 arbitrage opportunities identified with >15% margin", tokensInput: 4200, tokensOutput: 2000,
         modelInfo: { provider: "OpenAI", model: "GPT-5.2", tokens: 6200, cost: 0.18 } },
-      { id: "dt-001-6", nodeId: "n6", nodeLabel: "Arbitrage Found?", nodeType: "condition", status: "success", startedAt: "2026-02-13T14:15:03Z", duration: 3, input: "opportunities.length > 0", output: "true → Yes branch" },
-      { id: "dt-001-7", nodeId: "n7", nodeLabel: "Output Validation", nodeType: "security", status: "success", startedAt: "2026-02-13T14:15:03Z", duration: 30, input: "Validating outputs for PII/sensitive data", output: "No sensitive data detected",
+      { id: "dt-001-6", nodeId: "n7", nodeLabel: "Output Validation", nodeType: "security", status: "success", startedAt: "2026-02-13T14:15:03Z", duration: 30, input: "Validating outputs for PII/sensitive data", output: "No sensitive data detected",
         securityInfo: { checks: [{ name: "PII detection", result: "pass", detail: "No PII found in output" }, { name: "Data classification", result: "pass", detail: "Output classified as PUBLIC" }], findings: [] } },
+      { id: "dt-001-7", nodeId: "n6", nodeLabel: "Arbitrage Found?", nodeType: "condition", status: "success", startedAt: "2026-02-13T14:15:03Z", duration: 3, input: "opportunities.length > 0", output: "true → Yes branch" },
       { id: "dt-001-8", nodeId: "n8", nodeLabel: "Send Slack Alert", nodeType: "action", status: "success", startedAt: "2026-02-13T14:15:03Z", duration: 210, input: "Post to #market-alerts", output: "Message sent to #market-alerts",
         toolInfo: { toolName: "Slack", endpoint: "POST /chat.postMessage", httpStatus: 200, request: '{"channel": "#market-alerts"}', response: '{"ok": true, "ts": "1739..."}' } },
     ],
@@ -1583,39 +1637,39 @@ export const detailedAgentRuns: DetailedAgentRun[] = [
   // ── Demand Forecasting runs ──
   {
     id: "drun-010", agentId: "agt-003", agentName: "Demand Forecasting", status: "success",
-    startedAt: "2026-02-13T12:00:00Z", completedAt: "2026-02-13T12:00:08Z", duration: 8200, tokensUsed: 18400, cost: 0.52, trigger: "scheduled", triggeredBy: "Cron (daily 12:00 UTC)", stepCount: 7, errorCount: 0,
+    startedAt: "2026-02-13T12:00:00Z", completedAt: "2026-02-13T13:05:00Z", duration: 3_900_000, tokensUsed: 384_000, cost: 12.48, trigger: "scheduled", triggeredBy: "Cron (daily 12:00 UTC)", stepCount: 7, errorCount: 0,
     traceSteps: [
-      { id: "dt-010-1", nodeId: "t1", nodeLabel: "Daily Schedule", nodeType: "trigger", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 2, input: "Daily forecast trigger", output: "Context initialized" },
-      { id: "dt-010-2", nodeId: "s1", nodeLabel: "Data Access Auth", nodeType: "security", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 65, input: "Verify Snowflake + DB access", output: "All credentials valid",
+      { id: "dt-010-1", nodeId: "t1", nodeLabel: "Daily Schedule", nodeType: "trigger", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 3, input: "Daily forecast trigger", output: "Context initialized" },
+      { id: "dt-010-2", nodeId: "s1", nodeLabel: "Data Access Auth", nodeType: "security", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 145, input: "Verify Snowflake + DB access", output: "All credentials valid",
         securityInfo: { checks: [{ name: "Snowflake auth", result: "pass", detail: "Key pair valid" }, { name: "PostgreSQL auth", result: "pass", detail: "Connection pooled" }, { name: "Data access scope", result: "pass", detail: "Read-only access confirmed" }], findings: [] } },
-      { id: "dt-010-3", nodeId: "t2", nodeLabel: "Fetch Historical Sales", nodeType: "tool", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 1200, input: "Query 90-day sales history", output: "89 categories, 12,400 data points",
-        toolInfo: { toolName: "Snowflake", endpoint: "SELECT daily_sales_summary", httpStatus: 200, request: "SELECT ... FROM daily_sales_summary WHERE date >= DATEADD(day, -90, CURRENT_DATE)" } },
-      { id: "dt-010-4", nodeId: "t3", nodeLabel: "Fetch Market Signals", nodeType: "tool", status: "success", startedAt: "2026-02-13T12:00:01Z", duration: 950, input: "Query market trends + seasonality", output: "42 trend signals",
+      { id: "dt-010-3", nodeId: "t2", nodeLabel: "Fetch Historical Sales", nodeType: "tool", status: "success", startedAt: "2026-02-13T12:00:01Z", duration: 186_000, input: "Query 2-year sales history across all warehouses", output: "89 categories, 847,000 data points",
+        toolInfo: { toolName: "Snowflake", endpoint: "SELECT daily_sales_summary", httpStatus: 200, request: "SELECT ... FROM daily_sales_summary WHERE date >= DATEADD(year, -2, CURRENT_DATE)" } },
+      { id: "dt-010-4", nodeId: "t3", nodeLabel: "Fetch Market Signals", nodeType: "tool", status: "success", startedAt: "2026-02-13T12:00:01Z", duration: 228_000, input: "Query market trends, seasonality indices + macro signals", output: "1,240 trend signals across 6 markets",
         toolInfo: { toolName: "PostgreSQL", endpoint: "SELECT market_signals", httpStatus: 200 } },
-      { id: "dt-010-5", nodeId: "m1", nodeLabel: "GPT-5.2: Forecast Model", nodeType: "model", status: "success", startedAt: "2026-02-13T12:00:02Z", duration: 4800, input: "Generate 7-day demand forecast for 89 categories with seasonality...", output: "Forecasts generated with 94.2% confidence interval", tokensInput: 12000, tokensOutput: 6400,
-        modelInfo: { provider: "OpenAI", model: "GPT-5.2", tokens: 18400, cost: 0.52 } },
-      { id: "dt-010-6", nodeId: "s2", nodeLabel: "Output Audit", nodeType: "security", status: "success", startedAt: "2026-02-13T12:00:07Z", duration: 42, input: "Audit forecast outputs", output: "All forecasts within bounds",
+      { id: "dt-010-5", nodeId: "m1", nodeLabel: "GPT-5.2: Forecast Model", nodeType: "model", status: "success", startedAt: "2026-02-13T12:04:00Z", duration: 3_342_000, input: "Run Monte Carlo demand simulation — 12,000 iterations per category across 89 categories with multi-horizon seasonality decomposition...", output: "Forecasts generated with 94.2% confidence interval — 12K iterations/category completed", tokensInput: 248_000, tokensOutput: 136_000,
+        modelInfo: { provider: "OpenAI", model: "GPT-5.2", tokens: 384_000, cost: 12.48 } },
+      { id: "dt-010-6", nodeId: "s2", nodeLabel: "Output Audit", nodeType: "security", status: "success", startedAt: "2026-02-13T12:59:42Z", duration: 92, input: "Audit forecast outputs", output: "All forecasts within bounds",
         securityInfo: { checks: [{ name: "Forecast bounds check", result: "pass", detail: "All predictions within 3\u03C3" }, { name: "Data lineage recorded", result: "pass", detail: "Lineage logged to audit table" }], findings: [] } },
-      { id: "dt-010-7", nodeId: "a1", nodeLabel: "Write Forecast to Snowflake", nodeType: "action", status: "success", startedAt: "2026-02-13T12:00:08Z", duration: 680, input: "INSERT 89 forecast records", output: "89 rows inserted",
+      { id: "dt-010-7", nodeId: "a1", nodeLabel: "Write Forecast to Snowflake", nodeType: "action", status: "success", startedAt: "2026-02-13T13:00:00Z", duration: 143_760, input: "INSERT 89 × 7-day forecast matrices + confidence intervals", output: "623 forecast rows + 5,607 interval records inserted",
         toolInfo: { toolName: "Snowflake", endpoint: "INSERT forecasts", httpStatus: 200 } },
     ],
   },
   {
     id: "drun-011", agentId: "agt-003", agentName: "Demand Forecasting", status: "success",
-    startedAt: "2026-02-12T12:00:00Z", completedAt: "2026-02-12T12:00:09Z", duration: 8800, tokensUsed: 19200, cost: 0.55, trigger: "scheduled", triggeredBy: "Cron (daily)", stepCount: 7, errorCount: 0,
+    startedAt: "2026-02-12T12:00:00Z", completedAt: "2026-02-12T13:03:00Z", duration: 3_780_000, tokensUsed: 396_000, cost: 12.82, trigger: "scheduled", triggeredBy: "Cron (daily)", stepCount: 7, errorCount: 0,
     traceSteps: [
       { id: "dt-011-1", nodeId: "t1", nodeLabel: "Daily Schedule", nodeType: "trigger", status: "success", startedAt: "2026-02-12T12:00:00Z", duration: 2, input: "Trigger", output: "Ready" },
-      { id: "dt-011-2", nodeId: "s1", nodeLabel: "Data Access Auth", nodeType: "security", status: "success", startedAt: "2026-02-12T12:00:00Z", duration: 58, input: "Verify access", output: "Valid",
+      { id: "dt-011-2", nodeId: "s1", nodeLabel: "Data Access Auth", nodeType: "security", status: "success", startedAt: "2026-02-12T12:00:00Z", duration: 128, input: "Verify access", output: "Valid",
         securityInfo: { checks: [{ name: "Snowflake auth", result: "pass", detail: "OK" }, { name: "Data access scope", result: "pass", detail: "Read-only" }], findings: [] } },
-      { id: "dt-011-3", nodeId: "t2", nodeLabel: "Fetch Historical Sales", nodeType: "tool", status: "success", startedAt: "2026-02-12T12:00:00Z", duration: 1350, input: "90-day history", output: "89 categories",
+      { id: "dt-011-3", nodeId: "t2", nodeLabel: "Fetch Historical Sales", nodeType: "tool", status: "success", startedAt: "2026-02-12T12:00:01Z", duration: 198_000, input: "2-year sales history", output: "89 categories, 831,000 data points",
         toolInfo: { toolName: "Snowflake", endpoint: "SELECT", httpStatus: 200 } },
-      { id: "dt-011-4", nodeId: "t3", nodeLabel: "Fetch Market Signals", nodeType: "tool", status: "success", startedAt: "2026-02-12T12:00:01Z", duration: 880, input: "Market trends", output: "38 signals",
+      { id: "dt-011-4", nodeId: "t3", nodeLabel: "Fetch Market Signals", nodeType: "tool", status: "success", startedAt: "2026-02-12T12:00:01Z", duration: 216_000, input: "Market trends + macro signals", output: "1,180 signals across 6 markets",
         toolInfo: { toolName: "PostgreSQL", endpoint: "SELECT", httpStatus: 200 } },
-      { id: "dt-011-5", nodeId: "m1", nodeLabel: "GPT-5.2: Forecast Model", nodeType: "model", status: "success", startedAt: "2026-02-12T12:00:02Z", duration: 5200, input: "Generate forecasts...", output: "89 forecasts at 93.8% CI", tokensInput: 12800, tokensOutput: 6400,
-        modelInfo: { provider: "OpenAI", model: "GPT-5.2", tokens: 19200, cost: 0.55 } },
-      { id: "dt-011-6", nodeId: "s2", nodeLabel: "Output Audit", nodeType: "security", status: "success", startedAt: "2026-02-12T12:00:08Z", duration: 38, input: "Audit", output: "Clean",
+      { id: "dt-011-5", nodeId: "m1", nodeLabel: "GPT-5.2: Forecast Model", nodeType: "model", status: "success", startedAt: "2026-02-12T12:04:00Z", duration: 3_234_000, input: "Monte Carlo simulation — 12,000 iterations × 89 categories...", output: "89 forecasts at 93.8% CI — 12K iterations/category", tokensInput: 256_000, tokensOutput: 140_000,
+        modelInfo: { provider: "OpenAI", model: "GPT-5.2", tokens: 396_000, cost: 12.82 } },
+      { id: "dt-011-6", nodeId: "s2", nodeLabel: "Output Audit", nodeType: "security", status: "success", startedAt: "2026-02-12T12:57:54Z", duration: 78, input: "Audit", output: "Clean",
         securityInfo: { checks: [{ name: "Bounds check", result: "pass", detail: "Within 3\u03C3" }], findings: [] } },
-      { id: "dt-011-7", nodeId: "a1", nodeLabel: "Write Forecast to Snowflake", nodeType: "action", status: "success", startedAt: "2026-02-12T12:00:09Z", duration: 720, input: "INSERT forecasts", output: "89 rows",
+      { id: "dt-011-7", nodeId: "a1", nodeLabel: "Write Forecast to Snowflake", nodeType: "action", status: "success", startedAt: "2026-02-12T12:58:00Z", duration: 131_792, input: "INSERT forecast matrices", output: "623 forecast rows inserted",
         toolInfo: { toolName: "Snowflake", endpoint: "INSERT", httpStatus: 200 } },
     ],
   },
@@ -1673,10 +1727,20 @@ export const detailedAgentRuns: DetailedAgentRun[] = [
   },
   {
     id: "drun-015", agentId: "agt-001", agentName: "Market Intelligence", status: "running",
-    startedAt: "2026-02-13T15:15:00Z", duration: 0, tokensUsed: 0, cost: 0, trigger: "scheduled", triggeredBy: "Cron (hourly)", stepCount: 2, errorCount: 0,
+    startedAt: "2026-02-13T15:15:00Z", duration: 0, tokensUsed: 4200, cost: 0.12, trigger: "scheduled", triggeredBy: "Cron (hourly)", stepCount: 8, errorCount: 0,
     traceSteps: [
-      { id: "dt-015-1", nodeId: "n1", nodeLabel: "Cron: Every Hour", nodeType: "trigger", status: "success", startedAt: "2026-02-13T15:15:00Z", duration: 2, input: "Scheduled trigger", output: "Context initialized" },
-      { id: "dt-015-2", nodeId: "n2", nodeLabel: "Input Validation", nodeType: "security", status: "running", startedAt: "2026-02-13T15:15:00Z", duration: 0, input: "Validating...", output: "\u2014" },
+      { id: "dt-015-1", nodeId: "n1", nodeLabel: "Cron: Every Hour", nodeType: "trigger", status: "success", startedAt: "2026-02-13T15:15:00Z", duration: 2, input: "Scheduled trigger fired", output: "Execution context initialized" },
+      { id: "dt-015-2", nodeId: "n2", nodeLabel: "Input Validation", nodeType: "security", status: "success", startedAt: "2026-02-13T15:15:00Z", duration: 45, input: "Validating execution context", output: "All checks passed",
+        securityInfo: { checks: [{ name: "Input sanitization", result: "pass", detail: "No injection patterns detected" }, { name: "Prompt injection", result: "pass", detail: "No prompt injection detected" }, { name: "Rate limit check", result: "pass", detail: "43/100 calls this hour" }, { name: "Auth token valid", result: "pass", detail: "Token expires in 52m" }], findings: [] } },
+      { id: "dt-015-3", nodeId: "n3", nodeLabel: "Fetch Market Data", nodeType: "tool", status: "success", startedAt: "2026-02-13T15:15:01Z", duration: 790, input: "GET amazon-sp-api/pricing?categories=electronics", output: "358 price points retrieved",
+        toolInfo: { toolName: "Amazon SP-API", endpoint: "GET /pricing/v2/items", httpStatus: 200, request: '{"categories": ["electronics"], "marketplace": "US"}', response: '{"items": 358, "truncated": false}' } },
+      { id: "dt-015-4", nodeId: "n4", nodeLabel: "Fetch Competitor Prices", nodeType: "tool", status: "success", startedAt: "2026-02-13T15:15:01Z", duration: 680, input: "Scraping 5 competitor storefronts", output: "195 competitor prices collected",
+        toolInfo: { toolName: "Web Scraper", endpoint: "POST /scrape/batch", httpStatus: 200, request: '{"targets": 5, "selector": "product-price"}', response: '{"results": 195, "failed": 0}' } },
+      { id: "dt-015-5", nodeId: "n5", nodeLabel: "GPT-5.2: Analyze Trends", nodeType: "model", status: "running", startedAt: "2026-02-13T15:15:02Z", duration: 0, input: "Analyze 553 price points for arbitrage opportunities...", output: "\u2014", tokensInput: 4200, tokensOutput: 0,
+        modelInfo: { provider: "OpenAI", model: "GPT-5.2", tokens: 4200, cost: 0.12 } },
+      { id: "dt-015-6", nodeId: "n7", nodeLabel: "Output Validation", nodeType: "security", status: "pending", startedAt: "2026-02-13T15:15:02Z", duration: 0 },
+      { id: "dt-015-7", nodeId: "n6", nodeLabel: "Arbitrage Found?", nodeType: "condition", status: "pending", startedAt: "2026-02-13T15:15:02Z", duration: 0 },
+      { id: "dt-015-8", nodeId: "n8", nodeLabel: "Send Slack Alert", nodeType: "action", status: "pending", startedAt: "2026-02-13T15:15:02Z", duration: 0 },
     ],
   },
 ];
@@ -1690,7 +1754,7 @@ export const detailedAuditTrail: DetailedAuditEntry[] = [
   { id: "daud-02", timestamp: "2026-02-13T14:20:00Z", agent: "Inventory Intelligence", agentId: "agt-002", action: "sync_inventory", status: "success", details: "Synced 1,247 SKUs across 3 warehouses", duration: 1750, user: "system", ipAddress: "10.0.1.42", securityRelevant: false, category: "execution" },
   { id: "daud-03", timestamp: "2026-02-13T14:15:00Z", agent: "Market Intelligence", agentId: "agt-001", action: "analyze_market", status: "success", details: "Processed 342 competitor price points, 2 arbitrage opportunities found", duration: 2340, user: "system", ipAddress: "10.0.1.42", securityRelevant: false, category: "execution" },
   { id: "daud-04", timestamp: "2026-02-13T13:15:00Z", agent: "Market Intelligence", agentId: "agt-001", action: "fetch_data", status: "error", details: "Amazon SP-API rate limit exceeded (429). Retry in 60s.", duration: 4500, user: "system", ipAddress: "10.0.1.42", securityRelevant: true, category: "alert" },
-  { id: "daud-05", timestamp: "2026-02-13T12:00:00Z", agent: "Demand Forecasting", agentId: "agt-003", action: "generate_forecast", status: "success", details: "7-day forecast generated for 89 product categories", duration: 8200, user: "system", ipAddress: "10.0.1.42", securityRelevant: false, category: "execution" },
+  { id: "daud-05", timestamp: "2026-02-13T12:00:00Z", agent: "Demand Forecasting", agentId: "agt-003", action: "generate_forecast", status: "success", details: "7-day forecast generated for 89 product categories", duration: 3_900_000, user: "system", ipAddress: "10.0.1.42", securityRelevant: false, category: "execution" },
   { id: "daud-06", timestamp: "2026-02-13T10:45:00Z", agent: "Price Optimization", agentId: "agt-005", action: "agent_paused", status: "warning", details: "Agent paused by admin \u2014 pending review of price change scope", duration: 0, user: "Jordan Reeves", ipAddress: "192.168.1.105", securityRelevant: true, category: "config_change" },
   { id: "daud-07", timestamp: "2026-02-13T10:30:00Z", agent: "Price Optimization", agentId: "agt-005", action: "optimize_prices", status: "warning", details: "Optimization complete, 3 products hit minimum price floor", duration: 3100, user: "Sarah Chen", ipAddress: "192.168.1.108", securityRelevant: false, category: "execution" },
   { id: "daud-08", timestamp: "2026-02-13T09:15:00Z", agent: "\u2014", action: "api_key_used", status: "success", details: "Production SDK key (krak_prod_) authenticated \u2014 agents:execute scope", duration: 12, user: "API Client", ipAddress: "203.0.113.42", securityRelevant: true, category: "access" },
@@ -1713,7 +1777,7 @@ const scaleTimeSeries = (base: ApiCallsPoint[], factor: number): ApiCallsPoint[]
     serverError: Math.floor(p.serverError * factor),
   }));
 
-const scaleLatency = (base: TimeSeriesPoint[], avgMs: number): TimeSeriesPoint[] =>
+const scaleDuration = (base: TimeSeriesPoint[], avgMs: number): TimeSeriesPoint[] =>
   base.map((p) => ({
     time: p.time,
     value: Math.floor((p.value / 2000) * avgMs),
@@ -1735,13 +1799,13 @@ const scaleCost = (base: TimeSeriesPoint[], factor: number): TimeSeriesPoint[] =
 
 export const agentTimeSeries: Record<string, {
   apiCalls: ApiCallsPoint[];
-  latency: TimeSeriesPoint[];
+  duration: TimeSeriesPoint[];
   tokens: TimeSeriesPoint[];
   cost: TimeSeriesPoint[];
 }> = {
-  "agt-001": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.28), latency: scaleLatency(latencyTimeSeries, 2400), tokens: scaleTokens(tokenUsageTimeSeries, 0.25), cost: scaleCost(costTimeSeries, 0.30) },
-  "agt-002": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.30), latency: scaleLatency(latencyTimeSeries, 1800), tokens: scaleTokens(tokenUsageTimeSeries, 0.28), cost: scaleCost(costTimeSeries, 0.22) },
-  "agt-003": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.08), latency: scaleLatency(latencyTimeSeries, 8500), tokens: scaleTokens(tokenUsageTimeSeries, 0.22), cost: scaleCost(costTimeSeries, 0.25) },
-  "agt-004": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.25), latency: scaleLatency(latencyTimeSeries, 950), tokens: scaleTokens(tokenUsageTimeSeries, 0.15), cost: scaleCost(costTimeSeries, 0.10) },
-  "agt-005": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.09), latency: scaleLatency(latencyTimeSeries, 3200), tokens: scaleTokens(tokenUsageTimeSeries, 0.10), cost: scaleCost(costTimeSeries, 0.13) },
+  "agt-001": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.28), duration: scaleDuration(durationTimeSeries, 2400), tokens: scaleTokens(tokenUsageTimeSeries, 0.25), cost: scaleCost(costTimeSeries, 0.30) },
+  "agt-002": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.30), duration: scaleDuration(durationTimeSeries, 1800), tokens: scaleTokens(tokenUsageTimeSeries, 0.28), cost: scaleCost(costTimeSeries, 0.22) },
+  "agt-003": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.08), duration: scaleDuration(durationTimeSeries, 3_840_000), tokens: scaleTokens(tokenUsageTimeSeries, 0.22), cost: scaleCost(costTimeSeries, 0.25) },
+  "agt-004": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.25), duration: scaleDuration(durationTimeSeries, 950), tokens: scaleTokens(tokenUsageTimeSeries, 0.15), cost: scaleCost(costTimeSeries, 0.10) },
+  "agt-005": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.09), duration: scaleDuration(durationTimeSeries, 3200), tokens: scaleTokens(tokenUsageTimeSeries, 0.10), cost: scaleCost(costTimeSeries, 0.13) },
 };

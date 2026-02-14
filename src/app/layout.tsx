@@ -21,7 +21,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Kraken OS",
+  title: "Kraken AI",
   description: "Enterprise Agent Harness Platform",
 };
 

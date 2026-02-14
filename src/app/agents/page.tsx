@@ -4,15 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Plus,
-  ExternalLink,
   GitBranch,
   ArrowRight,
   BadgeCheck,
   GitFork,
   Terminal,
-  RefreshCw,
   ArrowUpCircle,
+  RefreshCw,
   Link as LinkIcon,
+  Github,
 } from "lucide-react";
 import {
   agents,
@@ -20,7 +20,7 @@ import {
   type AgentStatus,
   type IntegrationSource,
 } from "@/data/mock";
-import { formatNumber, formatLatency } from "@/lib/utils";
+import { formatNumber, formatDuration } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 
@@ -143,9 +143,8 @@ const AgentsPage = () => {
                 Version
               </th>
               <th className="text-right text-[11px] font-mono font-medium text-text-muted uppercase tracking-wider px-5 py-2.5">
-                Sync
+                Updates
               </th>
-              <th className="w-10" />
             </tr>
           </thead>
           <tbody>
@@ -170,12 +169,16 @@ const AgentsPage = () => {
                         {sourceConfig[store.source].label}
                       </span>
                     </div>
-                    <span
-                      className="text-[10px] font-mono text-text-muted/70 mt-0.5 block truncate max-w-[240px]"
+                    <a
+                      href={store.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[10px] font-mono text-text-muted/70 hover:text-text-secondary mt-0.5 truncate max-w-[240px] transition-colors"
                       title={store.url}
                     >
+                      <Github size={10} className="shrink-0" />
                       {formatStoreUrl(store.url)}
-                    </span>
+                    </a>
                   </td>
                   <td className="px-5 py-3 text-right text-[12px] font-mono text-text-secondary">
                     {store.agentCount}
@@ -188,34 +191,20 @@ const AgentsPage = () => {
                   </td>
                   <td className="px-5 py-3 text-right">
                     {store.source === "kraken" ? (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-text-secondary">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-text-muted">
                         <RefreshCw size={10} />
-                        Auto-update
+                        Auto
                       </span>
+                    ) : store.updateAvailable ? (
+                      <button className="inline-flex items-center gap-1.5 text-[11px] font-mono text-accent hover:text-accent/80 transition-colors">
+                        <ArrowUpCircle size={10} />
+                        {store.updateAvailable} available
+                      </button>
                     ) : (
-                      <div className="flex flex-col items-end gap-1">
-                        <button className="inline-flex items-center gap-1.5 text-[11px] font-mono text-text-secondary hover:text-text-primary transition-colors">
-                          <RefreshCw size={10} />
-                          Sync
-                        </button>
-                        {store.updateAvailable && (
-                          <span className="animate-gentle-pulse inline-flex items-center gap-1 text-[10px] font-mono text-accent">
-                            <ArrowUpCircle size={9} />
-                            {store.updateAvailable}
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-[11px] font-mono text-text-muted">
+                        On latest
+                      </span>
                     )}
-                  </td>
-                  <td className="px-5 py-3">
-                    <a
-                      href={store.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-text-muted hover:text-text-secondary opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      <ExternalLink size={12} />
-                    </a>
                   </td>
                 </tr>
             ))}
@@ -310,10 +299,10 @@ const AgentsPage = () => {
                   </div>
                   <div>
                     <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted">
-                      Avg Latency
+                      Avg Duration
                     </div>
                     <div className="text-[14px] font-mono text-text-primary">
-                      {formatLatency(agent.avgLatency)}
+                      {formatDuration(agent.avgDuration)}
                     </div>
                   </div>
                 </div>

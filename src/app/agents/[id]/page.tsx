@@ -7,9 +7,16 @@ import {
   Controls,
   MiniMap,
   MarkerType,
+  getSmoothStepPath,
+  addEdge,
+  applyNodeChanges,
   type Node,
   type Edge,
+  type NodeChange,
   type NodeProps,
+  type EdgeProps,
+  type Connection,
+  type ReactFlowInstance,
   Handle,
   Position,
 } from "@xyflow/react";
@@ -32,10 +39,25 @@ import {
   GitFork,
   Terminal,
   OctagonX,
+  Zap,
+  Brain,
+  Wrench,
+  Send,
+  GitBranch,
+  Shield,
+  User,
+  Bot,
+  FileText,
+  X,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useParams, useRouter } from "next/navigation";
+import { cn, formatDuration } from "@/lib/utils";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  useExecutionSimulation,
+  type NodeExecutionState,
+} from "@/hooks/use-execution-simulation";
 
 const nodeTypeColors: Record<string, string> = {
   trigger: "#60a5fa",
@@ -61,32 +83,293 @@ const nodeTypeLabels: Record<string, string> = {
   report: "Report",
 };
 
+const nodeTypeIcons: Record<string, typeof Zap> = {
+  trigger: Zap,
+  model: Brain,
+  tool: Wrench,
+  action: Send,
+  condition: GitBranch,
+  security: Shield,
+  human: User,
+  agent: Bot,
+  report: FileText,
+};
+
+interface NodeConfig {
+  title: string;
+  model?: string;
+  systemPrompt?: string;
+  tools?: string[];
+  skills?: string[];
+}
+
+const nodeCategories = [
+  { type: "trigger", label: "Trigger", description: "Start the workflow", icon: Zap },
+  { type: "model", label: "Model", description: "LLM inference step", icon: Brain },
+  { type: "tool", label: "Tool", description: "External tool call", icon: Wrench },
+  { type: "action", label: "Action", description: "Perform an operation", icon: Send },
+  { type: "condition", label: "Condition", description: "Branch logic", icon: GitBranch },
+  { type: "security", label: "Security", description: "Safety guardrail", icon: Shield },
+  { type: "human", label: "Human", description: "Human-in-the-loop", icon: User },
+  { type: "agent", label: "Agent", description: "Invoke sub-agent", icon: Bot },
+  { type: "report", label: "Output", description: "Emit results", icon: FileText },
+];
+
+const availableModels = [
+  { id: "gpt-5.2", name: "GPT-5.2", provider: "OpenAI" },
+  { id: "gpt-5-mini", name: "GPT-5 Mini", provider: "OpenAI" },
+  { id: "o4-mini", name: "o4-mini", provider: "OpenAI" },
+  { id: "claude-opus-4.6", name: "Claude Opus 4.6", provider: "Anthropic" },
+  { id: "claude-sonnet-4.5", name: "Claude Sonnet 4.5", provider: "Anthropic" },
+  { id: "claude-haiku-4.5", name: "Claude Haiku 4.5", provider: "Anthropic" },
+  { id: "llama-4-maverick", name: "Llama 4 Maverick", provider: "Meta" },
+  { id: "llama-4-scout", name: "Llama 4 Scout", provider: "Meta" },
+  { id: "gemini-3-flash", name: "Gemini 3 Flash", provider: "Google" },
+  { id: "gemini-3-pro", name: "Gemini 3 Pro", provider: "Google" },
+];
+
+const availableTools = [
+  "Web Search",
+  "Code Execution",
+  "Data Analysis",
+  "Image Generation",
+  "Document Parsing",
+  "API Integration",
+  "Database Query",
+  "File Management",
+];
+
+const availableAgentSkills = [
+  "Competitor Deep Dive",
+  "Report Builder",
+  "Response Drafter",
+  "Price Validator",
+  "Inventory Reconciler",
+  "Ticket Summarizer",
+  "Bulk Updater",
+  "Compliance Auditor",
+];
+
+const flowNodeConfigs: Record<string, Record<string, NodeConfig>> = {
+  "agt-001": {
+    n1: { title: "Cron: Every Hour" },
+    n2: { title: "Input Validation" },
+    n5: {
+      title: "Analyze Trends",
+      model: "gpt-5.2",
+      systemPrompt:
+        "You are a market intelligence analyst. Analyze real-time pricing data, competitor movements, and market trends across e-commerce platforms. Identify arbitrage opportunities where price differentials exceed 15% after fees. Flag anomalies and provide confidence scores for each recommendation.",
+      tools: ["Web Search", "Data Analysis", "API Integration"],
+      skills: ["Competitor Deep Dive", "Report Builder"],
+    },
+    n3: { title: "Fetch Market Data" },
+    n4: { title: "Fetch Competitor Prices" },
+    n7: { title: "Output Validation" },
+    n6: { title: "Arbitrage Found?" },
+    n10: { title: "Manager Approval" },
+    n8: { title: "Send Slack Alert" },
+    n9: { title: "Update Dashboard" },
+  },
+  "agt-002": {
+    t1: { title: "Cron: Every 30m" },
+    s1: { title: "Auth & Rate Check" },
+    m1: {
+      title: "Reconcile Inventory",
+      model: "claude-sonnet-4.5",
+      systemPrompt:
+        "You are an inventory reconciliation specialist. Compare warehouse database levels against Shopify storefront quantities. Identify discrepancies, determine root causes (shrinkage, sync lag, returns processing), and generate corrective adjustment entries. Prioritize high-velocity SKUs.",
+      tools: ["Database Query", "Data Analysis", "API Integration"],
+      skills: ["Inventory Reconciler", "Bulk Updater"],
+    },
+    t2: { title: "Query Warehouse DB" },
+    t3: { title: "Sync Shopify Levels" },
+    s2: { title: "Data Integrity Check" },
+    c1: { title: "Conflicts Found?" },
+    a1: { title: "Push Inventory Updates" },
+    a2: { title: "Notify Slack" },
+    a3: { title: "Log: No Changes" },
+  },
+  "agt-003": {
+    t1: { title: "Daily Schedule" },
+    s1: { title: "Data Access Auth" },
+    m1: {
+      title: "Forecast Demand",
+      model: "gpt-5.2",
+      systemPrompt:
+        "You are a demand forecasting engine. Analyze historical sales data, seasonal patterns, market signals, and external factors to generate 7-day and 30-day demand forecasts by product category. Use statistical methods combined with qualitative market intelligence. Output structured forecasts with confidence intervals.",
+      tools: ["Data Analysis", "Code Execution", "Database Query"],
+      skills: ["Report Builder", "Compliance Auditor"],
+    },
+    t2: { title: "Fetch Historical Sales" },
+    t3: { title: "Fetch Market Signals" },
+    s2: { title: "Output Audit" },
+    a1: { title: "Write to Snowflake" },
+  },
+  "agt-004": {
+    t1: { title: "Zendesk Webhook" },
+    s1: { title: "Content Safety Check" },
+    m1: {
+      title: "Classify & Route",
+      model: "gpt-5-mini",
+      systemPrompt:
+        "You are a customer support triage agent. Read incoming Zendesk tickets, classify priority (P1\u2013P4), identify product category, detect sentiment, and route to the appropriate team. For P1/P2 issues, extract key details for escalation. For P3+ issues, draft an initial response using the knowledge base. Never expose internal system details.",
+      tools: ["Document Parsing", "API Integration", "Web Search"],
+      skills: ["Ticket Summarizer", "Response Drafter"],
+    },
+    tl1: { title: "Zendesk: Read Ticket" },
+    tl2: { title: "Knowledge Base Lookup" },
+    s2: { title: "Response Safety Scan" },
+    c1: { title: "Priority Level?" },
+    a1: { title: "Update Zendesk Ticket" },
+    a2: { title: "Escalate via Slack" },
+    a3: { title: "Send Auto-Response" },
+    r1: { title: "Incident Report" },
+    a4: { title: "Alert #security-incidents" },
+  },
+  "agt-005": {
+    t1: { title: "Schedule / Manual" },
+    s1: { title: "Permission Check" },
+    m1: {
+      title: "Optimize Prices",
+      model: "gpt-5.2",
+      systemPrompt:
+        "You are a pricing optimization engine. Analyze current product prices against competitor pricing, demand elasticity, inventory levels, and margin targets. Recommend price adjustments that maximize revenue while maintaining competitive positioning. Flag any changes that would breach minimum price floors or maximum discount thresholds.",
+      tools: ["Data Analysis", "API Integration", "Code Execution"],
+      skills: ["Price Validator", "Competitor Deep Dive"],
+    },
+    t2: { title: "Fetch Current Prices" },
+    t3: { title: "Fetch Competitor Prices" },
+    s2: { title: "Price Change Audit" },
+    c1: { title: "Floor Hit?" },
+    a1: { title: "Apply Price Changes" },
+    h1: { title: "Manager Review" },
+  },
+};
+
+interface TooltipData {
+  runId: string;
+  stepName: string;
+  triggeredBy: string;
+  model?: string;
+  tokensUsed: number;
+  elapsed: string;
+  stepProgress: string;
+}
+
+const executionRingClass: Record<NodeExecutionState, string> = {
+  idle: "",
+  executing: "ring-2 ring-blue-400 node-executing",
+  completed: "ring-1 ring-emerald-400/50 node-completed",
+  error: "ring-1 ring-red-400/50 node-error",
+};
+
+const ExecutionBadge = ({ runId }: { runId: string }) => (
+  <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 run-id-badge flex items-center gap-1.5 bg-bg-elevated border border-border-default rounded-full px-2 py-0.5 whitespace-nowrap">
+    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-gentle-pulse" />
+    <span className="text-[9px] font-mono text-blue-400">{runId}</span>
+  </div>
+);
+
+const ExecutionTooltip = ({ data }: { data: TooltipData }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 4, scale: 0.96 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    exit={{ opacity: 0, y: 4, scale: 0.96 }}
+    transition={{ duration: 0.15 }}
+    className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-50 bg-bg-elevated border border-border-default rounded-lg shadow-2xl px-3.5 py-2.5 min-w-[200px]"
+  >
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] font-mono text-text-muted">Run ID</span>
+        <span className="text-[10px] font-mono text-text-primary">{data.runId}</span>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] font-mono text-text-muted">Step</span>
+        <span className="text-[10px] font-mono text-text-primary">{data.stepName}</span>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] font-mono text-text-muted">Triggered by</span>
+        <span className="text-[10px] font-mono text-text-primary">{data.triggeredBy}</span>
+      </div>
+      {data.model && (
+        <div className="flex justify-between items-center">
+          <span className="text-[10px] font-mono text-text-muted">Model</span>
+          <span className="text-[10px] font-mono text-text-primary">{data.model}</span>
+        </div>
+      )}
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] font-mono text-text-muted">Tokens</span>
+        <span className="text-[10px] font-mono text-text-primary">{data.tokensUsed.toLocaleString()}</span>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] font-mono text-text-muted">Elapsed</span>
+        <span className="text-[10px] font-mono text-text-primary">{data.elapsed}</span>
+      </div>
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] font-mono text-text-muted">Progress</span>
+        <span className="text-[10px] font-mono text-blue-400">{data.stepProgress}</span>
+      </div>
+    </div>
+  </motion.div>
+);
+
 const CustomNode = ({ data }: NodeProps) => {
   const color = nodeTypeColors[data.nodeType as string] ?? "#999";
   const isSecurity = data.nodeType === "security";
+  const execState = (data.executionState as NodeExecutionState | undefined) ?? "idle";
+  const runId = data.runId as string | undefined;
+  const isExecuting = execState === "executing";
+  const isClickable = execState === "executing" || execState === "completed";
+  const router = useRouter();
+  const [hovered, setHovered] = useState(false);
+
+  const handleClick = () => {
+    if (isClickable && runId && data.stepId) {
+      router.push(`/?runId=${runId}&stepId=${data.stepId as string}`);
+    }
+  };
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={handleClick}
+      style={{ cursor: isClickable ? "pointer" : "default" }}
+    >
       <Handle
         type="target"
         position={Position.Left}
         className="!w-2 !h-2 !bg-bg-elevated !border !border-border-default"
       />
       <div
-        className="bg-bg-elevated border border-border-default rounded-lg pl-0 pr-4 py-2.5 min-w-[160px] flex items-center gap-3 shadow-lg"
+        className={cn(
+          "bg-bg-elevated border border-border-default rounded-lg pl-0 pr-4 py-2.5 min-w-[160px] flex items-center gap-3 shadow-lg transition-shadow",
+          executionRingClass[execState]
+        )}
         style={{ borderLeftWidth: 4, borderLeftColor: color }}
       >
         <div className="pl-3 flex flex-col gap-0.5">
           <span
-            className="text-[9px] font-mono uppercase tracking-wider"
+            className="text-[9px] font-mono uppercase tracking-wider flex items-center gap-1"
             style={{ color }}
           >
+            {(() => {
+              const Icon = nodeTypeIcons[data.nodeType as string];
+              return Icon ? <Icon size={10} /> : null;
+            })()}
             {nodeTypeLabels[data.nodeType as string] ?? data.nodeType}
           </span>
           <span className="text-[12px] text-text-primary font-medium leading-tight">
             {data.label as string}
           </span>
         </div>
+        {execState === "completed" && (
+          <CheckCircle2 size={12} className="text-emerald-400 shrink-0 ml-auto" />
+        )}
+        {execState === "error" && (
+          <XCircle size={12} className="text-red-400 shrink-0 ml-auto" />
+        )}
       </div>
       <Handle
         type="source"
@@ -101,69 +384,391 @@ const CustomNode = ({ data }: NodeProps) => {
           className="!w-2 !h-2 !bg-red-500/30 !border !border-red-500"
         />
       )}
+      {isExecuting && runId && <ExecutionBadge runId={runId} />}
+      <AnimatePresence>
+        {hovered && isExecuting && data.tooltipData ? (
+          <ExecutionTooltip data={data.tooltipData as TooltipData} />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 };
 
-const ModelNode = ({ data }: NodeProps) => (
-  <div className="relative">
-    <Handle
-      type="target"
-      position={Position.Left}
-      className="!w-2.5 !h-2.5 !bg-[#a78bfa]/20 !border-2 !border-[#a78bfa]/60"
-    />
-    <Handle
-      type="source"
-      position={Position.Right}
-      className="!w-2.5 !h-2.5 !bg-[#a78bfa]/20 !border-2 !border-[#a78bfa]/60"
-    />
-    <Handle
-      type="source"
-      position={Position.Top}
-      id="tool-t"
-      className="!w-2 !h-2 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/60"
-    />
-    <Handle
-      type="source"
-      position={Position.Bottom}
-      id="tool-b"
-      className="!w-2 !h-2 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/60"
-    />
-    <div className="bg-[#a78bfa]/[0.06] border-2 border-[#a78bfa]/30 rounded-xl px-5 py-3.5 min-w-[220px] shadow-[0_0_24px_rgba(167,139,250,0.10)]">
-      <span className="text-[9px] font-mono uppercase tracking-wider text-[#a78bfa]">
-        Model
-      </span>
-      <div className="text-[13px] text-text-primary font-semibold leading-tight mt-0.5">
-        {data.label as string}
-      </div>
-    </div>
-  </div>
-);
+const ModelNode = ({ data }: NodeProps) => {
+  const execState = (data.executionState as NodeExecutionState | undefined) ?? "idle";
+  const runId = data.runId as string | undefined;
+  const isExecuting = execState === "executing";
+  const isClickable = execState === "executing" || execState === "completed";
+  const router = useRouter();
+  const [hovered, setHovered] = useState(false);
 
-const ToolNode = ({ data }: NodeProps) => (
-  <div className="relative">
-    <Handle
-      type="target"
-      position={Position.Bottom}
-      id="bottom"
-      className="!w-1.5 !h-1.5 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/50"
-    />
-    <Handle
-      type="target"
-      position={Position.Top}
-      id="top"
-      className="!w-1.5 !h-1.5 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/50"
-    />
-    <div className="border border-dashed border-[#2dd4bf]/30 rounded-full px-3.5 py-1.5 bg-[#2dd4bf]/[0.04] flex items-center gap-2">
-      <div className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]/60 shrink-0" />
-      <span className="text-[11px] text-[#2dd4bf]/70 font-medium whitespace-nowrap">
-        {data.label as string}
-      </span>
+  const handleClick = () => {
+    if (isClickable && runId && data.stepId) {
+      router.push(`/?runId=${runId}&stepId=${data.stepId as string}`);
+    }
+  };
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={handleClick}
+      style={{ cursor: isClickable ? "pointer" : "default" }}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!w-2.5 !h-2.5 !bg-[#a78bfa]/20 !border-2 !border-[#a78bfa]/60"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!w-2.5 !h-2.5 !bg-[#a78bfa]/20 !border-2 !border-[#a78bfa]/60"
+      />
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="tool-t"
+        className="!w-2 !h-2 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/60"
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="tool-b"
+        className="!w-2 !h-2 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/60"
+      />
+      <div
+        className={cn(
+          "bg-[#a78bfa]/[0.06] border-2 border-[#a78bfa]/30 rounded-xl px-5 py-3.5 min-w-[220px] shadow-[0_0_24px_rgba(167,139,250,0.10)] transition-shadow",
+          executionRingClass[execState]
+        )}
+      >
+        <span className="text-[9px] font-mono uppercase tracking-wider text-[#a78bfa] flex items-center gap-1">
+          <Brain size={10} />
+          Model
+        </span>
+        <div className="text-[13px] text-text-primary font-semibold leading-tight mt-0.5 flex items-center gap-2">
+          {data.label as string}
+          {execState === "completed" && (
+            <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+          )}
+          {execState === "error" && (
+            <XCircle size={12} className="text-red-400 shrink-0" />
+          )}
+        </div>
+      </div>
+      {isExecuting && runId && <ExecutionBadge runId={runId} />}
+      <AnimatePresence>
+        {hovered && isExecuting && data.tooltipData ? (
+          <ExecutionTooltip data={data.tooltipData as TooltipData} />
+        ) : null}
+      </AnimatePresence>
     </div>
-  </div>
-);
+  );
+};
+
+const ToolNode = ({ data }: NodeProps) => {
+  const execState = (data.executionState as NodeExecutionState | undefined) ?? "idle";
+  const runId = data.runId as string | undefined;
+  const isExecuting = execState === "executing";
+  const isClickable = execState === "executing" || execState === "completed";
+  const router = useRouter();
+  const [hovered, setHovered] = useState(false);
+
+  const handleClick = () => {
+    if (isClickable && runId && data.stepId) {
+      router.push(`/?runId=${runId}&stepId=${data.stepId as string}`);
+    }
+  };
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={handleClick}
+      style={{ cursor: isClickable ? "pointer" : "default" }}
+    >
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="bottom"
+        className="!w-1.5 !h-1.5 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/50"
+      />
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="top"
+        className="!w-1.5 !h-1.5 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/50"
+      />
+      <div
+        className={cn(
+          "border border-dashed border-[#2dd4bf]/30 rounded-full px-3.5 py-1.5 bg-[#2dd4bf]/[0.04] flex items-center gap-2 transition-shadow",
+          executionRingClass[execState]
+        )}
+      >
+        <Wrench size={10} className="text-[#2dd4bf]/60 shrink-0" />
+        <span className="text-[11px] text-[#2dd4bf]/70 font-medium whitespace-nowrap">
+          {data.label as string}
+        </span>
+        {execState === "completed" && (
+          <CheckCircle2 size={10} className="text-emerald-400 shrink-0" />
+        )}
+        {execState === "error" && (
+          <XCircle size={10} className="text-red-400 shrink-0" />
+        )}
+      </div>
+      {isExecuting && runId && <ExecutionBadge runId={runId} />}
+      <AnimatePresence>
+        {hovered && isExecuting && data.tooltipData ? (
+          <ExecutionTooltip data={data.tooltipData as TooltipData} />
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const AnimatedEdge = ({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+}: EdgeProps) => {
+  const [edgePath] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  });
+  const isActive = data?.isActive as boolean;
+  const isCompleted = data?.isCompleted as boolean;
+
+  return (
+    <g>
+      <path
+        id={`edge-${id}`}
+        d={edgePath}
+        fill="none"
+        stroke={
+          isActive
+            ? "#60a5fa"
+            : isCompleted
+              ? "rgba(74,202,138,0.5)"
+              : "rgba(255,255,255,0.20)"
+        }
+        strokeWidth={isActive ? 2.5 : isCompleted ? 2 : 1.5}
+      />
+      {isActive && (
+        <circle r="3" fill="#60a5fa">
+          <animateMotion dur="1.5s" repeatCount="indefinite">
+            <mpath xlinkHref={`#edge-${id}`} />
+          </animateMotion>
+        </circle>
+      )}
+    </g>
+  );
+};
 
 const nodeTypes = { custom: CustomNode, modelNode: ModelNode, toolNode: ToolNode };
+const edgeTypes = { animated: AnimatedEdge };
+
+const ComponentPalette = ({
+  onDragStart,
+}: {
+  onDragStart: (event: React.DragEvent, type: string) => void;
+}) => (
+  <div className="flex items-center gap-2 flex-wrap">
+    {nodeCategories.map((cat) => {
+      const color = nodeTypeColors[cat.type];
+      const Icon = cat.icon;
+      return (
+        <div
+          key={cat.type}
+          draggable
+          onDragStart={(e) => onDragStart(e, cat.type)}
+          className="group flex items-center gap-2.5 bg-bg-secondary border border-border-subtle rounded-lg px-3.5 py-2.5 cursor-grab active:cursor-grabbing hover:border-border-default hover:bg-white/[0.02] transition-all select-none"
+          style={{ borderLeftWidth: 3, borderLeftColor: color }}
+        >
+          <Icon
+            size={14}
+            className="shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+            style={{ color }}
+          />
+          <div>
+            <div className="text-[11px] font-medium text-text-primary leading-tight">
+              {cat.label}
+            </div>
+            <div className="text-[9px] text-text-muted leading-tight">
+              {cat.description}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
+
+const NodeConfigPanel = ({
+  nodeType,
+  config,
+  onUpdate,
+  onClose,
+}: {
+  nodeType: string;
+  config: NodeConfig;
+  onUpdate: (config: NodeConfig) => void;
+  onClose: () => void;
+}) => {
+  const color = nodeTypeColors[nodeType] ?? "#999";
+
+  return (
+    <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border-subtle">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-2 h-2 rounded-sm"
+            style={{ backgroundColor: color }}
+          />
+          <h3 className="text-[13px] font-medium text-text-primary">
+            Configure {nodeTypeLabels[nodeType] ?? nodeType}
+          </h3>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-text-muted hover:text-text-secondary transition-colors"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="p-5 space-y-4">
+        <div>
+          <label className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5 block">
+            Title
+          </label>
+          <input
+            value={config.title}
+            onChange={(e) => onUpdate({ ...config, title: e.target.value })}
+            className="w-full bg-bg-primary border border-border-subtle rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent/30 transition-colors"
+            placeholder={`Name this ${nodeTypeLabels[nodeType]?.toLowerCase() ?? "node"}...`}
+          />
+        </div>
+
+        {nodeType === "model" && (
+          <>
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5 block">
+                Model
+              </label>
+              <select
+                value={config.model ?? ""}
+                onChange={(e) =>
+                  onUpdate({ ...config, model: e.target.value })
+                }
+                className="w-full bg-bg-primary border border-border-subtle rounded-lg px-3 py-2 text-[13px] text-text-primary focus:outline-none focus:border-accent/30 transition-colors"
+              >
+                <option value="">Select a model...</option>
+                {availableModels.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} &mdash; {m.provider}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5 block">
+                System Prompt
+              </label>
+              <textarea
+                value={config.systemPrompt ?? ""}
+                onChange={(e) =>
+                  onUpdate({ ...config, systemPrompt: e.target.value })
+                }
+                className="w-full bg-bg-primary border border-border-subtle rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent/30 transition-colors resize-none"
+                rows={4}
+                placeholder="Enter system instructions for this model..."
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5 block">
+                Tools
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {availableTools.map((tool) => {
+                  const active = config.tools?.includes(tool) ?? false;
+                  return (
+                    <button
+                      key={tool}
+                      onClick={() => {
+                        const current = config.tools ?? [];
+                        onUpdate({
+                          ...config,
+                          tools: active
+                            ? current.filter((t) => t !== tool)
+                            : [...current, tool],
+                        });
+                      }}
+                      className={cn(
+                        "text-[11px] px-2.5 py-1 rounded-full border transition-all",
+                        active
+                          ? "bg-accent/10 text-accent border-accent/20"
+                          : "text-text-muted border-border-subtle hover:border-border-default hover:text-text-secondary"
+                      )}
+                    >
+                      {tool}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5 block">
+                Skills
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {availableAgentSkills.map((skill) => {
+                  const active = config.skills?.includes(skill) ?? false;
+                  return (
+                    <button
+                      key={skill}
+                      onClick={() => {
+                        const current = config.skills ?? [];
+                        onUpdate({
+                          ...config,
+                          skills: active
+                            ? current.filter((s) => s !== skill)
+                            : [...current, skill],
+                        });
+                      }}
+                      className={cn(
+                        "text-[11px] px-2.5 py-1 rounded-full border transition-all",
+                        active
+                          ? "bg-[#c084fc]/10 text-[#c084fc] border-[#c084fc]/20"
+                          : "text-text-muted border-border-subtle hover:border-border-default hover:text-text-secondary"
+                      )}
+                    >
+                      {skill}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const sourceConfig: Record<
   IntegrationSource,
@@ -212,6 +817,7 @@ const statusIcons: Record<TraceStep["status"], typeof CheckCircle2> = {
   error: XCircle,
   running: Clock,
   skipped: SkipForward,
+  pending: Clock,
 };
 
 const statusColors: Record<TraceStep["status"], string> = {
@@ -219,6 +825,7 @@ const statusColors: Record<TraceStep["status"], string> = {
   error: "text-error",
   running: "text-warning",
   skipped: "text-text-muted",
+  pending: "text-text-muted",
 };
 
 const TraceStepRow = ({ step }: { step: TraceStep }) => {
@@ -244,9 +851,7 @@ const TraceStepRow = ({ step }: { step: TraceStep }) => {
           className={cn("shrink-0", statusColors[step.status])}
         />
         <span className="text-[11px] font-mono text-text-muted w-16 text-right shrink-0">
-          {step.duration >= 1000
-            ? `${(step.duration / 1000).toFixed(1)}s`
-            : `${step.duration}ms`}
+          {formatDuration(step.duration)}
         </span>
         {expanded ? (
           <ChevronDown size={14} className="text-text-muted shrink-0" />
@@ -292,52 +897,272 @@ const AgentDetailPage = () => {
 
   const [activeTab, setActiveTab] = useState<"builder" | "runs">("builder");
 
-  const rfNodes: Node[] = useMemo(
-    () =>
-      flow?.nodes.map((n) => ({
+  const isRunning = agent.status === "running";
+  const simulationRun = agentRuns.find((r) => r.id === "drun-001");
+  const simulationSteps = simulationRun?.traceSteps ?? [];
+  const simulationEdges = useMemo(
+    () => flow?.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })) ?? [],
+    [flow]
+  );
+
+  const getStepDuration = useCallback(
+    (step: { nodeType: string }) =>
+      step.nodeType === "model" ? 10000 : 1800,
+    []
+  );
+
+  const { progress } = useExecutionSimulation({
+    steps: simulationSteps,
+    edges: simulationEdges,
+    runId: "drun-015",
+    autoStart: isRunning,
+    stepIntervalMs: 1800,
+    getStepDuration,
+  });
+
+  const shouldShowExecution = isRunning && activeTab === "builder";
+
+  const rfNodes: Node[] = useMemo(() => {
+    if (!flow) return [];
+    return flow.nodes.map((n) => {
+      const execState: NodeExecutionState = shouldShowExecution
+        ? (progress.nodeStates.get(n.id) ?? "idle")
+        : "idle";
+
+      const currentStep = progress.currentStep;
+      const stepForNode = simulationSteps.find((s) => s.nodeId === n.id);
+
+      const tooltipData = execState === "executing" && currentStep
+        ? {
+            runId: "drun-015",
+            stepName: currentStep.nodeLabel,
+            triggeredBy: simulationRun?.triggeredBy ?? "Cron (hourly)",
+            model: currentStep.modelInfo?.model,
+            tokensUsed: simulationRun?.tokensUsed ?? 0,
+            elapsed: `${(progress.elapsedMs / 1000).toFixed(1)}s`,
+            stepProgress: `Step ${progress.currentStepIndex + 1} of ${simulationSteps.length}`,
+          }
+        : undefined;
+
+      return {
         id: n.id,
         position: { x: n.x, y: n.y },
-        data: { label: n.label, nodeType: n.type },
+        data: {
+          label: n.label,
+          nodeType: n.type,
+          executionState: execState,
+          runId: shouldShowExecution ? "drun-015" : undefined,
+          stepId: stepForNode?.id,
+          tooltipData,
+        },
         type: n.type === "model" ? "modelNode" : n.type === "tool" ? "toolNode" : "custom",
-      })) ?? [],
-    [flow]
-  );
+      };
+    });
+  }, [flow, shouldShowExecution, progress, simulationSteps, simulationRun]);
 
-  const rfEdges: Edge[] = useMemo(
+  const rfEdges: Edge[] = useMemo(() => {
+    if (!flow) return [];
+    return flow.edges.map((e) => {
+      const isToolCall = e.label === "tool call";
+      const isKill = e.label?.includes("KILL") ?? false;
+
+      if (shouldShowExecution) {
+        const isActive = progress.activeEdgeId === e.id;
+        const isCompleted = progress.completedEdges.has(e.id);
+
+        if (isActive || isCompleted) {
+          return {
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            sourceHandle: e.sourceHandle,
+            targetHandle: e.targetHandle,
+            type: "animated",
+            data: { isActive, isCompleted },
+          };
+        }
+      }
+
+      return {
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+        label: e.label,
+        type: "smoothstep",
+        animated: isToolCall,
+        style: {
+          stroke: isKill ? "#ef4444" : isToolCall ? "rgba(45,212,191,0.4)" : "rgba(255,255,255,0.20)",
+          strokeWidth: isKill ? 2 : 1.5,
+          strokeDasharray: isToolCall ? "6 3" : isKill ? "6 3" : undefined,
+        },
+        labelStyle: {
+          fill: isKill ? "#ef4444" : isToolCall ? "#2dd4bf" : "#a3a3a3",
+          fontSize: 10,
+          fontFamily: "var(--font-mono), monospace",
+          fontWeight: isKill ? 600 : 400,
+        },
+        labelBgStyle: { fill: "#1a1a1a", fillOpacity: 0.95 },
+        labelBgPadding: [6, 3] as [number, number],
+        labelBgBorderRadius: 4,
+        markerEnd: isKill ? { type: MarkerType.ArrowClosed, color: "#ef4444" } : undefined,
+      };
+    });
+  }, [flow, shouldShowExecution, progress]);
+
+  const [nodeDimensions, setNodeDimensions] = useState<Record<string, { width: number; height: number }>>({});
+  const [addedNodes, setAddedNodes] = useState<Node[]>([]);
+  const [addedEdges, setAddedEdges] = useState<Edge[]>([]);
+  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [nodeConfigs, setNodeConfigs] = useState<Record<string, NodeConfig>>({});
+
+  const effectiveNodeConfigs = useMemo(() => {
+    const defaults: Record<string, NodeConfig> = {};
+    if (flow) {
+      for (const node of flow.nodes) {
+        defaults[node.id] =
+          flowNodeConfigs[agent.id]?.[node.id] ?? { title: node.label };
+      }
+    }
+    return { ...defaults, ...nodeConfigs };
+  }, [flow, agent.id, nodeConfigs]);
+
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setNodeDimensions((prev) => {
+      let next = prev;
+      for (const change of changes) {
+        if (change.type === "dimensions" && change.dimensions) {
+          const existing = prev[change.id];
+          if (
+            !existing ||
+            existing.width !== change.dimensions.width ||
+            existing.height !== change.dimensions.height
+          ) {
+            if (next === prev) next = { ...prev };
+            next[change.id] = change.dimensions;
+          }
+        }
+      }
+      return next;
+    });
+    setAddedNodes((prev) => {
+      if (prev.length === 0) return prev;
+      const addedIds = new Set(prev.map((n) => n.id));
+      const relevant = changes.filter((c) => "id" in c && addedIds.has(c.id));
+      if (relevant.length === 0) return prev;
+      return applyNodeChanges(relevant, prev) as Node[];
+    });
+  }, []);
+
+  const displayNodes = useMemo(
     () =>
-      flow?.edges.map((e) => {
-        const isToolCall = e.label === "tool call";
-        const isKill = e.label?.includes("KILL") ?? false;
-        return {
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          sourceHandle: e.sourceHandle,
-          targetHandle: e.targetHandle,
-          label: e.label,
-          type: "smoothstep",
-          animated: isToolCall,
-          style: {
-            stroke: isKill ? "#ef4444" : isToolCall ? "rgba(45,212,191,0.4)" : "rgba(255,255,255,0.20)",
-            strokeWidth: isKill ? 2 : 1.5,
-            strokeDasharray: isToolCall ? "6 3" : isKill ? "6 3" : undefined,
-          },
-          labelStyle: {
-            fill: isKill ? "#ef4444" : isToolCall ? "#2dd4bf" : "#a3a3a3",
-            fontSize: 10,
-            fontFamily: "var(--font-mono), monospace",
-            fontWeight: isKill ? 600 : 400,
-          },
-          labelBgStyle: { fill: "#1a1a1a", fillOpacity: 0.95 },
-          labelBgPadding: [6, 3] as [number, number],
-          labelBgBorderRadius: 4,
-          markerEnd: isKill ? { type: MarkerType.ArrowClosed, color: "#ef4444" } : undefined,
-        };
-      }) ?? [],
-    [flow]
+      rfNodes.map((node) => {
+        const dims = nodeDimensions[node.id];
+        return dims ? { ...node, measured: dims } : node;
+      }),
+    [rfNodes, nodeDimensions],
   );
 
-  const onInit = useCallback(() => {}, []);
+  const allNodes = useMemo(() => {
+    const annotated = addedNodes.map((n) => {
+      const config = nodeConfigs[n.id];
+      const defaultLabel = n.data.label as string;
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          label: config?.title || defaultLabel,
+        },
+      };
+    });
+    return [...displayNodes, ...annotated];
+  }, [displayNodes, addedNodes, nodeConfigs]);
+
+  const allEdges = useMemo(
+    () => [...rfEdges, ...addedEdges],
+    [rfEdges, addedEdges]
+  );
+
+  const onInit = useCallback((instance: ReactFlowInstance) => {
+    setRfInstance(instance);
+  }, []);
+
+  const onDragOverCanvas = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDropCanvas = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      const nodeType = event.dataTransfer.getData("application/reactflow");
+      if (!nodeType || !rfInstance) return;
+      const position = rfInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      const nodeId = `node-${Date.now()}`;
+      setAddedNodes((prev) => [
+        ...prev,
+        {
+          id: nodeId,
+          position,
+          data: { label: nodeTypeLabels[nodeType] ?? nodeType, nodeType },
+          type:
+            nodeType === "model"
+              ? "modelNode"
+              : nodeType === "tool"
+                ? "toolNode"
+                : "custom",
+          draggable: true,
+        },
+      ]);
+      setNodeConfigs((prev) => ({ ...prev, [nodeId]: { title: "" } }));
+      setSelectedNodeId(nodeId);
+    },
+    [rfInstance]
+  );
+
+  const onConnect = useCallback((connection: Connection) => {
+    setAddedEdges((prev) =>
+      addEdge(
+        {
+          ...connection,
+          type: "smoothstep",
+          style: { stroke: "rgba(255,255,255,0.30)", strokeWidth: 1.5 },
+        },
+        prev
+      )
+    );
+  }, []);
+
+  const handleCategoryDragStart = useCallback(
+    (event: React.DragEvent, type: string) => {
+      event.dataTransfer.setData("application/reactflow", type);
+      event.dataTransfer.effectAllowed = "move";
+    },
+    []
+  );
+
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      setSelectedNodeId(node.id);
+    },
+    []
+  );
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNodeId(null);
+  }, []);
+
+  const updateNodeConfig = useCallback(
+    (nodeId: string, config: NodeConfig) => {
+      setNodeConfigs((prev) => ({ ...prev, [nodeId]: config }));
+    },
+    []
+  );
 
   return (
     <div>
@@ -428,19 +1253,45 @@ const AgentDetailPage = () => {
       {activeTab === "builder" && (
         <div className="space-y-6">
           <div
-            className="rounded-xl border border-border-subtle overflow-hidden"
+            className="rounded-xl border border-border-subtle overflow-hidden relative"
             style={{ height: 520 }}
           >
+            {/* Run Info Bar */}
+            {shouldShowExecution && progress.isRunning && (
+              <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-2 bg-bg-secondary/80 backdrop-blur border-b border-border-subtle">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-gentle-pulse" />
+                  <span className="text-[11px] font-medium text-emerald-400">Live</span>
+                  <span className="text-[11px] font-mono text-text-muted">drun-015</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-[11px] font-mono text-text-secondary">
+                    Step {progress.currentStepIndex + 1} of {simulationSteps.length}
+                  </span>
+                  <span className="text-[11px] font-mono text-text-muted">
+                    {(progress.elapsedMs / 1000).toFixed(1)}s
+                  </span>
+                </div>
+              </div>
+            )}
             <ReactFlow
-              nodes={rfNodes}
-              edges={rfEdges}
+              nodes={allNodes}
+              edges={allEdges}
+              onNodesChange={onNodesChange}
+              onConnect={onConnect}
+              onDrop={onDropCanvas}
+              onDragOver={onDragOverCanvas}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              colorMode="dark"
               onInit={onInit}
               fitView
               fitViewOptions={{ padding: 0.3 }}
               proOptions={{ hideAttribution: true }}
               nodesDraggable={false}
-              nodesConnectable={false}
+              nodesConnectable={true}
               elementsSelectable={false}
               panOnScroll
               zoomOnScroll
@@ -458,27 +1309,43 @@ const AgentDetailPage = () => {
                 position="bottom-right"
               />
               <MiniMap
-                nodeColor={() => "rgba(255,255,255,0.20)"}
-                maskColor="rgba(0,0,0,0.7)"
+                nodeColor={(node) => {
+                  const nodeType = (node.data as { nodeType?: string }).nodeType;
+                  return nodeTypeColors[nodeType ?? ""] ?? "rgba(255,255,255,0.4)";
+                }}
+                maskColor="rgba(0,0,0,0.6)"
                 position="bottom-left"
+                zoomable
+                pannable
               />
             </ReactFlow>
           </div>
 
-          {/* Node Legend */}
-          <div className="flex items-center gap-4 flex-wrap">
-            {Object.entries(nodeTypeColors).map(([type, color]) => (
-              <div key={type} className="flex items-center gap-1.5">
-                <div
-                  className="w-2.5 h-2.5 rounded-sm"
-                  style={{ backgroundColor: color }}
+          {/* Component Palette */}
+          <ComponentPalette onDragStart={handleCategoryDragStart} />
+
+          {/* Node Config Panel */}
+          {selectedNodeId &&
+            effectiveNodeConfigs[selectedNodeId] &&
+            (() => {
+              const selectedNode = allNodes.find(
+                (n) => n.id === selectedNodeId
+              );
+              if (!selectedNode) return null;
+              return (
+                <NodeConfigPanel
+                  nodeType={
+                    (selectedNode.data as Record<string, unknown>)
+                      .nodeType as string
+                  }
+                  config={effectiveNodeConfigs[selectedNodeId]}
+                  onUpdate={(config) =>
+                    updateNodeConfig(selectedNodeId, config)
+                  }
+                  onClose={() => setSelectedNodeId(null)}
                 />
-                <span className="text-[11px] font-mono text-text-secondary capitalize">
-                  {type}
-                </span>
-              </div>
-            ))}
-          </div>
+              );
+            })()}
 
           {/* Agent Properties */}
           <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
@@ -512,10 +1379,10 @@ const AgentDetailPage = () => {
               </div>
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
-                  Avg Latency
+                  Avg Duration
                 </div>
                 <div className="text-[13px] font-mono text-text-primary">
-                  {(agent.avgLatency / 1000).toFixed(1)}s
+                  {formatDuration(agent.avgDuration)}
                 </div>
               </div>
               <div>
@@ -572,7 +1439,7 @@ const AgentDetailPage = () => {
                       </span>
                     )}
                     <span className="text-[11px] font-mono text-text-muted">
-                      Total: {latestRun.duration >= 1000 ? `${(latestRun.duration / 1000).toFixed(2)}s` : `${latestRun.duration}ms`}
+                      Total: {formatDuration(latestRun.duration)}
                     </span>
                   </div>
                 </div>
@@ -618,7 +1485,7 @@ const AgentDetailPage = () => {
                         {run.agentName}
                       </span>
                       <span className="text-[11px] font-mono text-text-muted">
-                        {run.duration >= 1000 ? `${(run.duration / 1000).toFixed(2)}s` : `${run.duration}ms`}
+                        {formatDuration(run.duration)}
                       </span>
                       <span className="text-[11px] font-mono text-text-muted">
                         {run.tokensUsed.toLocaleString()} tokens

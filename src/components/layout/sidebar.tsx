@@ -46,7 +46,7 @@ export const Sidebar = () => {
           </svg>
         </div>
         <span className="text-[13px] font-semibold text-white/95 tracking-wide">
-          Kraken OS
+          Kraken AI
         </span>
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, Suspense } from "react";
 import {
   AreaChart,
   Area,
@@ -15,11 +15,12 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   agents,
   apiCallsTimeSeries,
   tokenUsageTimeSeries,
-  latencyTimeSeries,
+  durationTimeSeries,
   costTimeSeries,
   agentObservabilityMetrics,
   detailedAgentRuns,
@@ -33,7 +34,7 @@ import {
 import {
   formatNumber,
   formatCurrency,
-  formatLatency,
+  formatDuration,
   formatTokens,
   timeAgo,
 } from "@/lib/utils";
@@ -290,7 +291,7 @@ const AgentSelectorTable = ({
             <th className="text-right font-mono text-text-muted uppercase tracking-wider text-[10px] px-4 py-2.5">Invocations</th>
             <th className="text-right font-mono text-text-muted uppercase tracking-wider text-[10px] px-4 py-2.5">Calls</th>
             <th className="text-right font-mono text-text-muted uppercase tracking-wider text-[10px] px-4 py-2.5">Error Rate</th>
-            <th className="text-right font-mono text-text-muted uppercase tracking-wider text-[10px] px-4 py-2.5">Latency</th>
+            <th className="text-right font-mono text-text-muted uppercase tracking-wider text-[10px] px-4 py-2.5">Avg Duration</th>
             <th className="text-right font-mono text-text-muted uppercase tracking-wider text-[10px] px-4 py-2.5">Tokens</th>
             <th className="text-right font-mono text-text-muted uppercase tracking-wider text-[10px] px-4 py-2.5">Cost</th>
             <th className="text-right font-mono text-text-muted uppercase tracking-wider text-[10px] px-4 py-2.5 w-[100px]">Last Run</th>
@@ -336,7 +337,7 @@ const AgentSelectorTable = ({
                 <td className="px-4 py-2.5 text-right font-mono text-text-secondary">{formatNumber(agent.totalRuns)}</td>
                 <td className="px-4 py-2.5 text-right font-mono text-text-secondary">{formatNumber(metrics.totalCalls)}</td>
                 <td className="px-4 py-2.5 text-right font-mono text-text-secondary">{metrics.errorRate}%</td>
-                <td className="px-4 py-2.5 text-right font-mono text-text-secondary">{formatLatency(metrics.avgLatency)}</td>
+                <td className="px-4 py-2.5 text-right font-mono text-text-secondary">{formatDuration(metrics.avgDuration)}</td>
                 <td className="px-4 py-2.5 text-right font-mono text-text-secondary">{formatTokens(metrics.tokensUsed)}</td>
                 <td className="px-4 py-2.5 text-right font-mono text-text-secondary">{formatCurrency(metrics.cost)}</td>
                 <td className="px-4 py-2.5 text-right font-mono text-text-muted text-[11px]">{timeAgo(agent.lastRun)}</td>
@@ -422,14 +423,14 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
     if (!selectedAgentId) {
       return {
         apiCalls: apiCallsTimeSeries,
-        latency: latencyTimeSeries,
+        duration: durationTimeSeries,
         tokens: tokenUsageTimeSeries,
         cost: costTimeSeries,
       };
     }
     return agentTimeSeries[selectedAgentId] ?? {
       apiCalls: apiCallsTimeSeries,
-      latency: latencyTimeSeries,
+      duration: durationTimeSeries,
       tokens: tokenUsageTimeSeries,
       cost: costTimeSeries,
     };
@@ -461,18 +462,18 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
 
       <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
         <div className="flex items-center gap-3 mb-4">
-          <p className="text-[13px] font-medium text-text-primary">Latency</p>
+          <p className="text-[13px] font-medium text-text-primary">Run Duration</p>
           <div className="flex items-center gap-3 ml-auto">
             <span className="flex items-center gap-1.5 text-[10px] text-text-muted"><span className="w-2 h-2 rounded-full bg-accent" />Avg</span>
             <span className="flex items-center gap-1.5 text-[10px] text-text-muted"><span className="w-2 h-2 rounded-full bg-text-muted" />P99</span>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={data.latency}>
+          <LineChart data={data.duration}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
             <XAxis dataKey="time" {...axisProps} />
-            <YAxis {...axisProps} tickFormatter={(v: number) => formatLatency(v)} />
-            <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatLatency(Number(v))} />
+            <YAxis {...axisProps} tickFormatter={(v: number) => formatDuration(v)} />
+            <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatDuration(Number(v))} />
             <Line type="monotone" dataKey="value" name="Avg" stroke="#e8622c" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="value2" name="P99" stroke="#6b6b6b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
           </LineChart>
@@ -563,7 +564,7 @@ const RunRow = ({
           <span className="text-[10px] font-mono text-text-muted">{timeAgo(run.startedAt)}</span>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-[11px] font-mono text-text-secondary">{run.duration > 0 ? formatLatency(run.duration) : "\u2014"}</div>
+          <div className="text-[11px] font-mono text-text-secondary">{run.duration > 0 ? formatDuration(run.duration) : "\u2014"}</div>
           <div className="text-[10px] font-mono text-text-muted">
             {run.tokensUsed > 0 ? formatTokens(run.tokensUsed) : "\u2014"}
             {run.cost > 0 ? ` \u00b7 ${formatCurrency(run.cost)}` : ""}
@@ -584,18 +585,32 @@ const RunRow = ({
 
 const TraceStepRow = ({
   step,
+  index,
   isExpanded,
+  isHighlighted,
   onToggle,
 }: {
   step: DetailedTraceStep;
+  index: number;
   isExpanded: boolean;
+  isHighlighted: boolean;
   onToggle: () => void;
 }) => {
   const Icon = statusIcons[step.status] ?? Clock;
   const color = nodeTypeColors[step.nodeType] ?? "#999";
+  const isRunning = step.status === "running";
+  const isPending = step.status === "pending";
 
   return (
-    <div className="border-b border-border-subtle last:border-b-0">
+    <div
+      className={cn(
+        "border-b border-border-subtle last:border-b-0 trace-step-enter",
+        isRunning && "trace-step-executing",
+        isHighlighted && !isRunning && "border-l-2 border-l-accent bg-accent/[0.06]",
+        isPending && "opacity-50",
+      )}
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
       <button
         onClick={onToggle}
         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors text-left"
@@ -608,9 +623,14 @@ const TraceStepRow = ({
           {nodeTypeLabels[step.nodeType] ?? step.nodeType}
         </span>
         <span className="text-[12px] text-text-primary flex-1 font-medium">{step.nodeLabel}</span>
-        <Icon size={13} className={cn("shrink-0", statusColors[step.status], step.status === "running" && "animate-spin")} />
+        {isRunning && (
+          <span className="text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
+            EXECUTING
+          </span>
+        )}
+        <Icon size={13} className={cn("shrink-0", statusColors[step.status], isRunning && "animate-spin")} />
         <span className="text-[11px] font-mono text-text-muted w-16 text-right shrink-0">
-          {step.duration >= 1000 ? `${(step.duration / 1000).toFixed(1)}s` : `${step.duration}ms`}
+          {formatDuration(step.duration)}
         </span>
         {isExpanded
           ? <ChevronDown size={14} className="text-text-muted shrink-0" />
@@ -720,7 +740,7 @@ const TimelineTab = ({ steps }: { steps: DetailedTraceStep[] }) => {
 
   return (
     <div className="p-5 space-y-1.5 overflow-auto">
-      {steps.map((step) => {
+      {steps.map((step, index) => {
         const color = nodeTypeColors[step.nodeType] ?? "#999";
         const offsetMs = new Date(step.startedAt).getTime() - minStart;
         const leftPct = totalDuration > 0 ? (offsetMs / (totalDuration + 200)) * 100 : 0;
@@ -737,17 +757,18 @@ const TimelineTab = ({ steps }: { steps: DetailedTraceStep[] }) => {
             </span>
             <div className="flex-1 h-6 bg-bg-primary rounded-md relative border border-border-subtle overflow-hidden">
               <div
-                className="absolute top-0.5 bottom-0.5 rounded-sm"
+                className="absolute top-0.5 bottom-0.5 rounded-sm timeline-bar-animate"
                 style={{
                   left: `${leftPct}%`,
                   width: `${widthPct}%`,
                   backgroundColor: color,
                   opacity: step.status === "error" ? 1 : 0.7,
+                  animationDelay: `${index * 100}ms`,
                 }}
               />
             </div>
             <span className="text-[10px] font-mono text-text-muted w-14 text-right shrink-0">
-              {step.duration >= 1000 ? `${(step.duration / 1000).toFixed(1)}s` : `${step.duration}ms`}
+              {formatDuration(step.duration)}
             </span>
           </div>
         );
@@ -773,7 +794,7 @@ const SecurityTab = ({ steps }: { steps: DetailedTraceStep[] }) => {
             <Shield size={13} className="text-orange-400" />
             <span className="text-[12px] font-medium text-text-primary">{step.nodeLabel}</span>
             <span className="text-[10px] font-mono text-text-muted ml-auto">
-              {step.duration >= 1000 ? `${(step.duration / 1000).toFixed(1)}s` : `${step.duration}ms`}
+              {formatDuration(step.duration)}
             </span>
           </div>
           <div className="space-y-1.5">
@@ -809,14 +830,23 @@ const TraceDetailPanel = ({
   run,
   expandedSteps,
   onToggleStep,
+  highlightedStepId,
 }: {
   run: DetailedAgentRun;
   expandedSteps: Set<string>;
   onToggleStep: (id: string) => void;
+  highlightedStepId: string | null;
 }) => {
   const [traceTab, setTraceTab] = useState<"trace" | "timeline" | "security">("trace");
   const Icon = statusIcons[run.status] ?? XCircle;
   const isKilled = run.status === "killed";
+  const isLive = run.status === "running";
+
+  const completedSteps = run.traceSteps.filter((s) => s.status === "success").length;
+  const runningSteps = run.traceSteps.filter((s) => s.status === "running").length;
+  const totalSteps = run.traceSteps.length;
+  const completedPct = (completedSteps / totalSteps) * 100;
+  const runningPct = (runningSteps / totalSteps) * 100;
 
   return (
     <div className={cn(
@@ -837,10 +867,19 @@ const TraceDetailPanel = ({
           <Icon size={14} className={cn(statusColors[run.status], run.status === "running" && "animate-spin")} />
           <span className="text-[14px] font-medium text-text-primary">{run.agentName}</span>
           <span className="text-[10px] font-mono text-text-muted bg-bg-tertiary px-1.5 py-0.5 rounded">{run.id}</span>
+          {isLive && (
+            <span className="inline-flex items-center gap-1.5 ml-auto">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              </span>
+              <span className="text-[11px] font-medium text-emerald-400">Live</span>
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-4 mt-1.5">
           <span className="text-[10px] font-mono text-text-muted">{timeAgo(run.startedAt)}</span>
-          <span className="text-[10px] font-mono text-text-muted">{run.duration > 0 ? formatLatency(run.duration) : "running..."}</span>
+          <span className="text-[10px] font-mono text-text-muted">{run.duration > 0 ? formatDuration(run.duration) : "running..."}</span>
           <span className="text-[10px] font-mono text-text-muted">{run.stepCount} steps</span>
           {run.errorCount > 0 && <span className="text-[10px] font-mono text-error">{run.errorCount} error{run.errorCount > 1 ? "s" : ""}</span>}
           <span className="text-[10px] font-mono text-text-muted ml-auto">{run.triggeredBy}</span>
@@ -864,14 +903,38 @@ const TraceDetailPanel = ({
         ))}
       </div>
 
+      {traceTab === "trace" && (
+        <div className="px-5 pt-3 pb-2 shrink-0">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex-1 h-1.5 bg-bg-primary rounded-full overflow-hidden flex">
+              <div
+                className="h-full bg-emerald-400/30 transition-all duration-500"
+                style={{ width: `${completedPct}%` }}
+              />
+              {runningSteps > 0 && (
+                <div
+                  className="h-full bg-blue-400 animate-gentle-pulse"
+                  style={{ width: `${runningPct}%` }}
+                />
+              )}
+            </div>
+          </div>
+          <p className="text-[10px] font-mono text-text-muted">
+            {completedSteps} of {totalSteps} steps completed
+          </p>
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto">
         {traceTab === "trace" && (
           <div className="bg-bg-primary">
-            {run.traceSteps.map((step) => (
+            {run.traceSteps.map((step, index) => (
               <TraceStepRow
                 key={step.id}
                 step={step}
+                index={index}
                 isExpanded={expandedSteps.has(step.id)}
+                isHighlighted={step.id === highlightedStepId}
                 onToggle={() => onToggleStep(step.id)}
               />
             ))}
@@ -892,12 +955,14 @@ const RunsAndTracesTab = ({
   onSelectRun,
   expandedSteps,
   onToggleStep,
+  highlightedStepId,
 }: {
   selectedAgentId: string | null;
   selectedRunId: string | null;
   onSelectRun: (id: string | null) => void;
   expandedSteps: Set<string>;
   onToggleStep: (id: string) => void;
+  highlightedStepId: string | null;
 }) => {
   const filteredRuns = useMemo(
     () =>
@@ -937,6 +1002,7 @@ const RunsAndTracesTab = ({
             run={selectedRun}
             expandedSteps={expandedSteps}
             onToggleStep={onToggleStep}
+            highlightedStepId={highlightedStepId}
           />
         </div>
       )}
@@ -1040,7 +1106,7 @@ const AuditLogTab = ({ selectedAgentId }: { selectedAgentId: string | null }) =>
                 </td>
                 <td className="px-4 py-2.5 text-text-secondary max-w-[280px] truncate">{entry.details}</td>
                 <td className="px-4 py-2.5 text-right font-mono text-text-secondary">
-                  {entry.duration > 0 ? formatLatency(entry.duration) : "\u2014"}
+                  {entry.duration > 0 ? formatDuration(entry.duration) : "\u2014"}
                 </td>
                 <td className="px-4 py-2.5 font-mono text-[11px] text-text-muted">{entry.ipAddress}</td>
               </tr>
@@ -1055,29 +1121,60 @@ const AuditLogTab = ({ selectedAgentId }: { selectedAgentId: string | null }) =>
 // --- Page ---
 
 const ObservabilityPage = () => {
+  const searchParams = useSearchParams();
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("24h");
   const [activeBottomTab, setActiveBottomTab] = useState<"runs" | "audit">("runs");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [killTargetId, setKillTargetId] = useState<string | null>(null);
+  const [highlightedStepId, setHighlightedStepId] = useState<string | null>(null);
+  const deepLinked = useRef(false);
+
+  useEffect(() => {
+    if (deepLinked.current) return;
+    const runId = searchParams.get("runId");
+    const stepId = searchParams.get("stepId");
+    if (!runId) return;
+
+    const run = detailedAgentRuns.find((r) => r.id === runId);
+    if (!run) return;
+
+    deepLinked.current = true;
+    setSelectedAgentId(run.agentId);
+    setSelectedRunId(run.id);
+    setActiveBottomTab("runs");
+
+    const stepsToExpand = new Set<string>();
+    for (const step of run.traceSteps) {
+      if (step.status === "running" || step.id === stepId) {
+        stepsToExpand.add(step.id);
+      }
+    }
+    setExpandedSteps(stepsToExpand);
+
+    if (stepId) {
+      setHighlightedStepId(stepId);
+    }
+  }, [searchParams]);
 
   const killTarget = killTargetId ? agents.find((a) => a.id === killTargetId) ?? null : null;
 
-  const handleSelectAgent = (agentId: string | null) => {
+  const handleSelectAgent = useCallback((agentId: string | null) => {
     setSelectedAgentId(agentId);
     setSelectedRunId(null);
     setExpandedSteps(new Set());
-  };
+    setHighlightedStepId(null);
+  }, []);
 
-  const handleToggleStep = (stepId: string) => {
+  const handleToggleStep = useCallback((stepId: string) => {
     setExpandedSteps((prev) => {
       const next = new Set(prev);
       if (next.has(stepId)) next.delete(stepId);
       else next.add(stepId);
       return next;
     });
-  };
+  }, []);
 
   return (
     <div>
@@ -1144,6 +1241,7 @@ const ObservabilityPage = () => {
             onSelectRun={setSelectedRunId}
             expandedSteps={expandedSteps}
             onToggleStep={handleToggleStep}
+            highlightedStepId={highlightedStepId}
           />
         )}
         {activeBottomTab === "audit" && (
@@ -1162,4 +1260,10 @@ const ObservabilityPage = () => {
   );
 };
 
-export default ObservabilityPage;
+const ObservabilityPageWrapper = () => (
+  <Suspense>
+    <ObservabilityPage />
+  </Suspense>
+);
+
+export default ObservabilityPageWrapper;

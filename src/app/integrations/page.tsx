@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Database,
   Wrench,
   Zap,
+  FileText,
   Power,
   ExternalLink,
   GitBranch,
@@ -19,6 +20,8 @@ import {
   RefreshCw,
   Store,
   Package,
+  Github,
+  Shield,
 } from "lucide-react";
 import {
   integrations,
@@ -35,6 +38,7 @@ const tabs = [
   { key: "data-source", label: "Data Sources", icon: Database },
   { key: "tool", label: "Tools", icon: Wrench },
   { key: "action", label: "Actions", icon: Zap },
+  { key: "skill", label: "Skills", icon: FileText },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
@@ -43,6 +47,7 @@ const categoryColor: Record<string, string> = {
   "data-source": "#60a5fa",
   tool: "#2dd4bf",
   action: "#34d399",
+  skill: "#c084fc",
 };
 
 const sourceConfig: Record<
@@ -85,6 +90,133 @@ const SourceBadge = ({
       </span>
     </span>
   );
+};
+
+/* ─── Simple Markdown Renderer ─── */
+const RenderedMarkdown = ({ content }: { content: string }) => {
+  const elements = useMemo(() => {
+    const lines = content.split("\n");
+    const result: React.ReactNode[] = [];
+    let i = 0;
+    let key = 0;
+    let listKey = 0;
+
+    const renderInline = (text: string) => {
+      const parts: React.ReactNode[] = [];
+      let remaining = text;
+      let inlineKey = 0;
+
+      while (remaining.length > 0) {
+        const codeMatch = remaining.match(/^(.*?)`([^`]+)`(.*)$/);
+        const boldMatch = remaining.match(/^(.*?)\*\*([^*]+)\*\*(.*)$/);
+
+        if (codeMatch && (!boldMatch || codeMatch.index! <= boldMatch.index!)) {
+          if (codeMatch[1]) parts.push(codeMatch[1]);
+          parts.push(
+            <code key={inlineKey++} className="text-[11px] bg-white/[0.06] border border-white/[0.08] rounded px-1 py-0.5 text-accent/80">
+              {codeMatch[2]}
+            </code>
+          );
+          remaining = codeMatch[3];
+        } else if (boldMatch) {
+          if (boldMatch[1]) parts.push(boldMatch[1]);
+          parts.push(
+            <strong key={inlineKey++} className="text-text-primary font-medium">
+              {boldMatch[2]}
+            </strong>
+          );
+          remaining = boldMatch[3];
+        } else {
+          parts.push(remaining);
+          break;
+        }
+      }
+      return parts;
+    };
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      // Code block
+      if (line.startsWith("```")) {
+        const lang = line.slice(3).trim();
+        const codeLines: string[] = [];
+        i++;
+        while (i < lines.length && !lines[i].startsWith("```")) {
+          codeLines.push(lines[i]);
+          i++;
+        }
+        i++; // skip closing ```
+        result.push(
+          <div key={key++} className="my-2 rounded-md border border-white/[0.08] overflow-hidden">
+            {lang && (
+              <div className="px-3 py-1 bg-white/[0.03] border-b border-white/[0.06] text-[9px] font-mono uppercase tracking-wider text-text-muted">
+                {lang}
+              </div>
+            )}
+            <pre className="p-3 overflow-x-auto text-[11px] leading-[1.6] text-text-secondary bg-white/[0.02]">
+              <code>{codeLines.join("\n")}</code>
+            </pre>
+          </div>
+        );
+        continue;
+      }
+
+      // Headings
+      if (line.startsWith("## ")) {
+        result.push(
+          <h3 key={key++} className="text-[12px] font-semibold text-text-primary mt-4 mb-1.5 uppercase tracking-wide">
+            {line.slice(3)}
+          </h3>
+        );
+        i++;
+        continue;
+      }
+      if (line.startsWith("# ")) {
+        result.push(
+          <h2 key={key++} className="text-[14px] font-semibold text-text-primary mb-2">
+            {line.slice(2)}
+          </h2>
+        );
+        i++;
+        continue;
+      }
+
+      // List items
+      if (line.match(/^- /)) {
+        const items: React.ReactNode[] = [];
+        while (i < lines.length && lines[i].match(/^- /)) {
+          items.push(
+            <li key={listKey++} className="flex gap-2 text-[12px] text-text-secondary leading-relaxed">
+              <span className="text-text-muted/60 shrink-0 mt-[2px]">&#8226;</span>
+              <span>{renderInline(lines[i].slice(2))}</span>
+            </li>
+          );
+          i++;
+        }
+        result.push(<ul key={key++} className="my-1.5 space-y-1">{items}</ul>);
+        continue;
+      }
+
+      // Empty line
+      if (line.trim() === "") {
+        i++;
+        continue;
+      }
+
+      // Paragraph
+      result.push(
+        <p key={key++} className="text-[12px] text-text-secondary leading-relaxed my-1">
+          {renderInline(line)}
+        </p>
+      );
+      i++;
+    }
+
+    return result;
+  }, [content]);
+
+  return <div>{elements}</div>;
 };
 
 /* ─── Plugin Store Row ─── */
@@ -366,6 +498,17 @@ const DetailPanel = ({
               {integration.sourceDetail ?? src.label}
             </span>
           </div>
+          {integration.category === "skill" && (
+            <>
+              <span className="text-text-muted/40">|</span>
+              <div className="flex items-center gap-1.5">
+                <Shield size={11} className="text-emerald-400" />
+                <span className="text-[11px] font-mono text-emerald-400/80">
+                  Clean
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* MCP Endpoint */}
@@ -383,15 +526,38 @@ const DetailPanel = ({
           </div>
         )}
 
-        {/* Description */}
-        <div>
-          <label className="text-[11px] font-mono uppercase tracking-wider text-text-muted mb-2 block">
-            Description
-          </label>
-          <p className="text-[12px] text-text-secondary leading-relaxed">
-            {integration.description}
-          </p>
-        </div>
+        {/* Description (non-skill only) */}
+        {integration.category !== "skill" && (
+          <div>
+            <label className="text-[11px] font-mono uppercase tracking-wider text-text-muted mb-2 block">
+              Description
+            </label>
+            <p className="text-[12px] text-text-secondary leading-relaxed">
+              {integration.description}
+            </p>
+          </div>
+        )}
+
+        {/* GitHub URL */}
+        {integration.githubUrl && (
+          <div>
+            <label className="text-[11px] font-mono uppercase tracking-wider text-text-muted mb-2 block">
+              Repository
+            </label>
+            <a
+              href={integration.githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 bg-bg-primary border border-border-subtle rounded-lg px-3 py-2 hover:border-accent/30 transition-colors group"
+            >
+              <Github size={13} className="text-text-muted group-hover:text-text-secondary shrink-0" />
+              <span className="text-[12px] font-mono text-text-secondary truncate">
+                {integration.githubUrl.replace("https://github.com/", "")}
+              </span>
+              <ExternalLink size={10} className="text-text-muted/60 group-hover:text-text-secondary shrink-0 ml-auto" />
+            </a>
+          </div>
+        )}
 
         {/* Configuration */}
         {integration.config && integration.config.length > 0 && (
@@ -445,6 +611,27 @@ const DetailPanel = ({
             </div>
           </div>
         )}
+
+        {/* Skill Content */}
+        {integration.category === "skill" && integration.skillContent && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <FileText size={12} className="text-[#c084fc]" />
+              <label className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
+                SKILL.md
+              </label>
+            </div>
+            <div className="bg-bg-primary border border-border-subtle rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-subtle bg-white/[0.02]">
+                <FileText size={10} className="text-text-muted" />
+                <span className="text-[10px] font-mono text-text-muted">Markdown</span>
+              </div>
+              <div className="p-4 overflow-auto max-h-[400px]">
+                <RenderedMarkdown content={integration.skillContent} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer */}
@@ -482,13 +669,15 @@ const IntegrationsPage = () => {
       .length,
     action: integrations.filter((i) => i.category === "action" && i.subscribed)
       .length,
+    skill: integrations.filter((i) => i.category === "skill" && i.subscribed)
+      .length,
   };
 
   return (
     <div>
       <PageHeader
         title="Integrations"
-        subtitle="Connect data sources, tools, and actions to your agents"
+        subtitle="Connect data sources, tools, actions, and skills to your agents"
       />
 
       {/* Plugin Stores */}
