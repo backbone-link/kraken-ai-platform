@@ -14,6 +14,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import Link from "next/link";
 import {
   agents,
   apiCallsTimeSeries,
@@ -51,6 +52,7 @@ import {
   AlertTriangle,
   Activity,
   OctagonX,
+  ExternalLink,
 } from "lucide-react";
 
 // --- Constants ---
@@ -93,15 +95,15 @@ const statusDotColor: Record<string, string> = {
 const tooltipStyle = {
   contentStyle: {
     background: "#1a1a1a",
-    border: "1px solid rgba(255,255,255,0.1)",
+    border: "1px solid rgba(255,255,255,0.15)",
     borderRadius: 8,
     fontSize: 12,
   },
-  labelStyle: { color: "#999" },
+  labelStyle: { color: "#a3a3a3" },
 };
 
 const axisProps = {
-  tick: { fill: "#555555", fontSize: 11 },
+  tick: { fill: "#6b6b6b", fontSize: 11 },
   axisLine: false as const,
   tickLine: false as const,
 };
@@ -315,7 +317,17 @@ const AgentSelectorTable = ({
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-2">
                     <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", statusDotColor[agent.status])} />
-                    <span className={cn("text-text-primary", agent.status === "killed" && "text-red-400")}>{agent.name}</span>
+                    <span className={cn("text-text-primary", agent.status === "killed" && "text-red-400")}>
+                      {agent.name}
+                    </span>
+                    <Link
+                      href={`/agents/${agent.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-text-muted hover:text-accent transition-colors"
+                      title="Open in Builder"
+                    >
+                      <ExternalLink size={12} />
+                    </Link>
                     {agent.status === "killed" && (
                       <span className="text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">KILLED</span>
                     )}
@@ -436,7 +448,7 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={data.apiCalls}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
             <XAxis dataKey="time" {...axisProps} />
             <YAxis {...axisProps} />
             <Tooltip {...tooltipStyle} />
@@ -457,12 +469,12 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data.latency}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
             <XAxis dataKey="time" {...axisProps} />
             <YAxis {...axisProps} tickFormatter={(v: number) => formatLatency(v)} />
             <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatLatency(Number(v))} />
             <Line type="monotone" dataKey="value" name="Avg" stroke="#e8622c" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="value2" name="P99" stroke="#555555" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+            <Line type="monotone" dataKey="value2" name="P99" stroke="#6b6b6b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -477,12 +489,12 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={data.tokens}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
             <XAxis dataKey="time" {...axisProps} />
             <YAxis {...axisProps} tickFormatter={(v: number) => formatNumber(v)} />
             <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatNumber(Number(v))} />
             <Bar dataKey="value" name="Input" fill="#e8622c" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="value2" name="Output" fill="#555555" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="value2" name="Output" fill="#6b6b6b" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -491,7 +503,7 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
         <p className="text-[13px] font-medium text-text-primary mb-4">Daily Cost</p>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={data.cost}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
             <XAxis dataKey="time" {...axisProps} />
             <YAxis {...axisProps} tickFormatter={(v: number) => `$${v}`} />
             <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatCurrency(Number(v))} />

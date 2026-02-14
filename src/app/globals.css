@@ -5,11 +5,11 @@
   --color-bg-secondary: #111111;
   --color-bg-tertiary: #1a1a1a;
   --color-bg-elevated: #222222;
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
-  --color-border-default: rgba(255, 255, 255, 0.10);
-  --color-text-primary: #ececec;
-  --color-text-secondary: #999999;
-  --color-text-muted: #555555;
+  --color-border-subtle: rgba(255, 255, 255, 0.09);
+  --color-border-default: rgba(255, 255, 255, 0.15);
+  --color-text-primary: #efefef;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted: #6b6b6b;
   --color-accent: #e8622c;
   --color-accent-hover: #f0753f;
   --color-accent-muted: rgba(232, 98, 44, 0.12);
@@ -47,12 +47,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.10);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* Glassmorphic card base */
@@ -60,7 +60,7 @@ body {
   background: rgba(17, 17, 17, 0.6);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
 }
 
 /* Subtle grain overlay */
@@ -80,17 +80,10 @@ body {
   letter-spacing: -0.02em;
 }
 
-/* Smooth transitions */
-* {
-  transition-property: background-color, border-color, color, opacity;
-  transition-duration: 150ms;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* Recharts overrides */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
-  stroke: rgba(255, 255, 255, 0.04) !important;
+  stroke: rgba(255, 255, 255, 0.06) !important;
 }
 
 .recharts-text {
@@ -127,7 +120,7 @@ body {
 }
 
 .react-flow__edge-path {
-  stroke: rgba(255, 255, 255, 0.15) !important;
+  stroke: rgba(255, 255, 255, 0.20) !important;
   stroke-width: 1.5 !important;
 }
 

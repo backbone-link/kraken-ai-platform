@@ -155,15 +155,15 @@ src/
 **Borders**:
 | Token | Value |
 |---|---|
-| `--color-border-subtle` | `rgba(255,255,255,0.06)` |
-| `--color-border-default` | `rgba(255,255,255,0.10)` |
+| `--color-border-subtle` | `rgba(255,255,255,0.09)` |
+| `--color-border-default` | `rgba(255,255,255,0.15)` |
 
 **Text**:
 | Token | Value |
 |---|---|
-| `--color-text-primary` | `#ececec` |
-| `--color-text-secondary` | `#999999` |
-| `--color-text-muted` | `#555555` |
+| `--color-text-primary` | `#efefef` |
+| `--color-text-secondary` | `#a3a3a3` |
+| `--color-text-muted` | `#6b6b6b` |
 
 **Accent**:
 | Token | Value |
@@ -190,12 +190,12 @@ src/
 
 **Custom scrollbar** (webkit):
 - 6px width/height, transparent track
-- Thumb: `rgba(255,255,255,0.08)`, 3px border radius, `0.14` on hover
+- Thumb: `rgba(255,255,255,0.10)`, 3px border radius, `0.18` on hover
 
 **Glassmorphism** (`.glass` class):
 - Background: `rgba(17,17,17,0.6)`
 - Backdrop filter: `blur(20px) saturate(180%)`
-- Border: 1px `rgba(255,255,255,0.06)`
+- Border: 1px `rgba(255,255,255,0.09)`
 
 **Grain texture** (`.grain::before` pseudo-element):
 - Fixed overlay covering entire viewport, z-index 9999, pointer-events none
@@ -205,19 +205,15 @@ src/
 **Metric values** (`.metric-value`):
 - `font-variant-numeric: tabular-nums`, `letter-spacing: -0.02em`
 
-**Global transitions** (`*` selector):
-- Properties: background-color, border-color, color, opacity
-- Duration: 150ms, cubic-bezier(0.4, 0, 0.2, 1)
-
 **Recharts overrides**:
-- Grid lines: `rgba(255,255,255,0.04)`
+- Grid lines: `rgba(255,255,255,0.06)`
 - Text: text-muted color, 11px, monospace font
 
 **React Flow overrides**:
 - Background: bg-primary
 - Minimap: bg-secondary, border-subtle, 8px radius
 - Controls: bg-secondary, border-subtle
-- Edge paths: `rgba(255,255,255,0.15)`, 1.5px stroke
+- Edge paths: `rgba(255,255,255,0.20)`, 1.5px stroke
 
 **Custom animation** (`animate-gentle-pulse`):
 - Keyframes: 100% → 40% → 100% opacity over 3s, ease-in-out, infinite
@@ -230,7 +226,7 @@ src/
 - Minimal borders using very low opacity whites (4–15%)
 - 13px default UI font size, monospace for data/metrics
 - Consistent status colors: emerald=success, amber=warning, red=error
-- 150ms transitions for all interactive elements
+- Transitions are scoped per-component (no global `*` transition rule)
 - Glassmorphism for card backgrounds, subtle grain texture overlay
 
 ---
@@ -291,6 +287,8 @@ interface FlowEdge {
   source: string
   target: string
   label?: string
+  sourceHandle?: string
+  targetHandle?: string
 }
 ```
 
@@ -578,8 +576,25 @@ interface DetailedAgentRun {
 #### Recent Runs (8)
 Run IDs: run-001 through run-008. Mix of success/error statuses across agents. Durations range from 890ms to 8200ms. Costs range from $0.03 to $0.52.
 
-#### Market Intelligence Flow (10 nodes, 10 edges)
-Nodes: Cron Trigger → Input Validation → (Fetch Market Data + Fetch Competitor Prices) → GPT-5.2 Analyze → Arbitrage Found? → Output Validation → Manager Approval → (Send Slack Alert + Update Dashboard)
+#### Agent Flows (all 5 agents)
+Exported as `agentFlows: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] }>` keyed by agent ID.
+
+**agt-001 (Market Intelligence)** — 10 nodes, 9 edges:
+Cron Trigger → Input Validation → GPT-5.2 Analyze ← (Fetch Market Data [tool call], Fetch Competitor Prices [tool call]) → Output Validation → Arbitrage Found? → (Manager Approval → Send Slack Alert) / Update Dashboard
+
+**agt-002 (Inventory Intelligence)** — 10 nodes, 9 edges:
+Cron 30m → Auth & Rate Check → Claude Sonnet 4.5 Reconcile ← (Query Warehouse DB, Sync Shopify Levels) → Data Integrity Check → Conflicts Found? → (Push Inventory Updates → Notify Slack) / Log: No Changes
+
+**agt-003 (Demand Forecasting)** — 7 nodes, 6 edges:
+Daily Schedule → Data Access Auth → GPT-5.2 Forecast ← (Fetch Historical Sales, Fetch Market Signals) → Output Audit → Write to Snowflake
+
+**agt-004 (Customer Support Triage)** — 12 nodes, 11 edges:
+Zendesk Webhook → Content Safety Check → GPT-5-mini Classify ← (Zendesk Read Ticket, Knowledge Base Lookup) → Response Safety Scan → Priority Level? → (Update Zendesk → Escalate Slack) / Auto-Response. Kill path: Safety Check → "PII → KILL" → Incident Report → Alert #security-incidents
+
+**agt-005 (Price Optimization)** — 9 nodes, 9 edges:
+Schedule/Manual → Permission Check → GPT-5.2 Optimize ← (Fetch Current Prices, Fetch Competitor Prices) → Price Change Audit → Floor Hit? → Apply Changes / (Manager Review → Apply Changes)
+
+**Edge styling conventions**: Tool calls use `smoothstep` type, dashed stroke, animated, teal color. KILL edges use red dashed stroke with arrow markers. Standard edges use white 20% opacity.
 
 #### Dashboard Metrics
 - Total runs today: 147, success rate: 97.8%, avg latency: 2180ms, cost today: $18.42
@@ -721,11 +736,11 @@ Mocked to 14:00 (afternoon). Returns `"Good morning"` / `"Good afternoon"` / `"G
 
 **Client component** using `usePathname()` for active route detection.
 
-**Container**: `fixed left-0 top-0 bottom-0 w-[240px] bg-bg-secondary border-r border-white/[0.06] flex flex-col z-50`
+**Container**: `fixed left-0 top-0 bottom-0 w-[240px] bg-bg-secondary border-r border-white/[0.09] flex flex-col z-50`
 
 **Brand Section** (h-14):
-- Custom SVG logo: 22x22px rounded box with diamond/line pattern
-- Text: "Kraken OS" — 13px, semibold, white/90, tracking-wide
+- Custom SVG logo: 22x22px rounded box (`bg-white/[0.10]`) with diamond/line pattern (strokes at white/80 and white/60)
+- Text: "Kraken OS" — 13px, semibold, white/95, tracking-wide
 
 **Main Navigation**:
 | Path | Label | Icon (lucide) |
@@ -744,14 +759,14 @@ Mocked to 14:00 (afternoon). Returns `"Good morning"` / `"Good afternoon"` / `"G
 
 **Nav Item Styling**:
 - 13px font, 16px icons (1.5 stroke width)
-- Active: `bg-white/[0.08] text-white/90 font-medium`
-- Inactive: `text-white/50 hover:bg-white/[0.04] hover:text-white/75`
+- Active: `bg-white/[0.10] text-white/95 font-medium`
+- Inactive: `text-white/55 hover:bg-white/[0.05] hover:text-white/80`
 - Active detection: exact match for `/`, prefix match for others
 
 **Bottom Section**:
-- Notifications button with "3" badge (pill, 10px, white/50)
+- Notifications button with "3" badge (pill, 10px, white/60)
 - Divider line
-- User profile: avatar (20x20 rounded square, gradient, initial "J"), name "Jordan Reeves" (13px, white/70)
+- User profile: avatar (20x20 rounded square, gradient from-white/20 to-white/8, initial "J" in white/70), name "Jordan Reeves" (13px, white/80)
 
 ### 7.3 Page Header (`src/components/layout/page-header.tsx`)
 
@@ -791,7 +806,7 @@ Full-width table with 11 columns showing all 5 agents:
 
 | Column | Width | Content |
 |---|---|---|
-| Agent | 220px | Name + status dot + "KILLED" badge if applicable |
+| Agent | 220px | Name + status dot + ExternalLink icon (links to `/agents/${id}`) + "KILLED" badge if applicable |
 | Invocations | auto | `formatNumber(agent.totalRuns)` |
 | Calls | auto | `formatNumber(metrics.totalCalls)` |
 | Error Rate | auto | Percentage with color coding |
@@ -816,11 +831,11 @@ All charts use `ResponsiveContainer` (height 200px) with dark-themed tooltips.
 - Dashed CartesianGrid
 
 **Chart 2 — Latency** (LineChart):
-- Lines: Avg (#e8622c, solid, 2px), P99 (#555555, dashed, 1.5px)
+- Lines: Avg (#e8622c, solid, 2px), P99 (#6b6b6b, dashed, 1.5px)
 - Y-axis: formatLatency, Tooltip: formatLatency
 
 **Chart 3 — Token Usage** (BarChart):
-- Bars: Input (#e8622c), Output (#555555) — rounded tops
+- Bars: Input (#e8622c), Output (#6b6b6b) — rounded tops
 - Y-axis: formatNumber, Tooltip: formatNumber
 
 **Chart 4 — Daily Cost** (AreaChart):
@@ -869,6 +884,8 @@ Modal overlay with blur backdrop. Contains:
 
 **Node type colors**: trigger=#60a5fa, model=#a78bfa, tool=#2dd4bf, condition=#fbbf24, security=#f97316, action=#34d399, human=#f472b6, agent=#e8622c, report=#ef4444
 
+**Node type labels**: Trigger, Model, Tool, Condition, Security, Action, Human, Agent, Report
+
 **Status dot colors**: running=emerald-400, idle=text-muted, error=red-400, paused=yellow-400, killed=red-500
 
 **Trigger badge colors**: scheduled=blue, manual=violet, webhook=emerald, event-driven=amber, api=cyan
@@ -905,7 +922,7 @@ Each agent card (wrapped in `<Link href={/agents/${agent.id}}`):
 - Description: 13px, line-clamp-2
 - Divider
 - Metrics row: Success Rate (%), Total Runs (formatted), Avg Latency (formatted)
-- Footer: Trigger type tags (bg-bg-tertiary) + Version badge
+- Footer: Trigger type tags (`bg-bg-tertiary text-text-secondary`) + Version badge
 
 **Status config**: running=emerald-400 "Running", idle=yellow-400 "Idle", paused=text-muted "Paused", error=red-400 "Error", killed=red-500 "Killed"
 
@@ -922,11 +939,11 @@ Shared inline component showing icon + label. Props: `source: IntegrationSource`
 
 **Route**: `/agents/[id]` — **File**: `src/app/agents/[id]/page.tsx` — **Client component**
 
-> Note: Currently hardcoded to `agents[0]` (Market Intelligence). In production, would use `useParams()` to resolve agent by ID.
+Uses `useParams()` to resolve agent by ID. Falls back to `agents[0]` if not found. Flow data comes from `agentFlows[agent.id]`, run data from `detailedAgentRuns` filtered by agent ID.
 
 ### 10.1 Header
 - Back link to `/agents` (ArrowLeft icon)
-- Agent name (20px), version badge, "Published" badge (emerald), status indicator, SourceBadge
+- Agent name (20px), version badge, dynamic status indicator (running=emerald, idle=muted, error=red, paused=yellow, killed=red-500), SourceBadge
 - Action buttons: Kill (red border), Dry Run (FlaskConical icon), Run Now (accent bg, Play icon), More (MoreHorizontal icon)
 
 ### 10.2 Tabs
@@ -935,18 +952,29 @@ Two tabs: **Builder** and **Runs**
 ### 10.3 Builder Tab
 
 **ReactFlow Visualization** (520px height):
-- 10 nodes from `marketIntelligenceFlow.nodes`, mapped to custom node type
-- 10 edges with subtle white stroke and label styling
-- Background: dot pattern (`rgba(255,255,255,0.05)`, gap 20, size 1)
+- Nodes from `agentFlows[agent.id]`, mapped to three node types: `modelNode`, `toolNode`, or `custom`
+- Edges use `smoothstep` type with conditional styling (tool calls: animated dashed teal, KILL: red dashed with arrow marker, standard: white 20%)
+- Background: dot pattern (`rgba(255,255,255,0.07)`, gap 20, size 1)
 - Controls (bottom-right), MiniMap (bottom-left)
 - Non-interactive: `nodesDraggable={false}`, `nodesConnectable={false}`, `elementsSelectable={false}`
 - Zoom: 0.5–1.5, pan on scroll, fit view with 0.3 padding
 
-**Custom Node Component**:
+**Custom Node Component** (used for trigger, condition, security, action, human, agent, report types):
 - Left handle (target) + Right handle (source): 8x8px, bg-elevated, border-default
+- Security nodes additionally have a bottom "kill" handle (red-500 border)
 - Node body: bg-elevated, border-default, rounded-lg, min-w-160px
 - Left colored border (4px) using nodeTypeColors
 - Content: type label (9px mono uppercase, colored) + node name (12px medium)
+
+**ModelNode Component** (used for model type nodes):
+- 4 handles: Left (target), Right (source), Top (source "tool-t"), Bottom (source "tool-b") — purple themed
+- Body: purple-tinted bg (`#a78bfa/6%`), 2px purple border, rounded-xl, 220px min-width, subtle purple glow shadow
+- Content: "Model" label (9px mono uppercase, purple) + model name (13px semibold)
+
+**ToolNode Component** (used for tool type nodes):
+- 2 handles: Top (target "top"), Bottom (target "bottom") — teal themed
+- Body: dashed teal border, rounded-full pill shape, teal-tinted bg
+- Content: teal dot + tool name (11px medium, teal/70)
 
 **Node Type Legend**: Flex row of all node types with colored squares and labels
 
@@ -955,12 +983,15 @@ Two tabs: **Builder** and **Runs**
 
 ### 10.4 Runs Tab
 
-**Latest Execution**:
-- Header: "Latest Execution" + success badge + "Total: 2.85s"
-- Trace steps from `sampleTrace` array (8 steps): expandable rows with status icon, duration, input/output
+Shows "No runs recorded" empty state if no runs exist for the agent.
 
-**Run History**:
-- 5 hardcoded runs with: status icon, time (HH:MM), "Market Intelligence", duration, token count
+**Latest Execution** (from first `detailedAgentRuns` entry for agent):
+- Header: "Latest Execution" + dynamic status badge (killed/error/running/success) + "Total: X.XXs"
+- Kill reason banner (if killed): red OctagonX icon + reason text in red-tinted box
+- Trace steps from `latestRun.traceSteps`: expandable rows with status icon, duration, input/output
+
+**Run History** (from all `detailedAgentRuns` for agent):
+- Data-driven list with: status icon (CheckCircle2/OctagonX/Clock/XCircle), time (HH:MM from startedAt), agent name, duration, token count, "KILLED" badge if applicable
 
 **TraceStepRow** (expandable):
 - Colored dot (nodeTypeColors), node label, status icon, duration, chevron toggle
@@ -1011,12 +1042,12 @@ Side panel (380px when selected, full width otherwise). Each `PipelineCard`:
 - Footer: "Python 3.12 · Kraken SDK v1.4.0" + line count + "Save & Deploy" button
 
 **Python Syntax Highlighting** (PythonLine component):
-- Keywords (violet-400/80): import, def, class, return, if, else, for, etc.
-- Builtins (sky-400/70): print, len, range, int, str, list, etc.
-- Strings (emerald-400/70): single/double/triple quotes, f-strings
-- Decorators (amber-400/80): @-prefixed
-- Numbers (orange-300/80)
-- Comments (text-muted/60, italic)
+- Keywords (violet-400/90): import, def, class, return, if, else, for, etc.
+- Builtins (sky-400/85): print, len, range, int, str, list, etc.
+- Strings (emerald-400/85): single/double/triple quotes, f-strings
+- Decorators (amber-400/90): @-prefixed
+- Numbers (orange-300/90)
+- Comments (text-muted/80, italic)
 
 **Run History Tab**:
 - List of recent runs: status icon, time (HH:MM), records processed, duration, replay button
@@ -1040,13 +1071,12 @@ Side panel (380px when selected, full width otherwise). Each `PipelineCard`:
 
 Each card (`bg-bg-secondary rounded-xl p-6`):
 - **Header**: Provider name (18px) + status indicator (green dot "Active" or gray "Not configured")
-- **API Key Status**: Check icon + "API key configured" (green) OR AlertTriangle + "API key required" (warning)
 - **Available Models**: Label (10px mono uppercase) + model name badges (`bg-bg-tertiary text-text-secondary font-mono px-3 py-1 rounded-lg`)
 - **Divider**
 - **Metrics Grid** (3 columns): Total Requests (formatNumber), Total Tokens (formatNumber), Total Cost (formatCurrency) — all 16px mono with `metric-value` class
-- **Configure Button** (only for inactive providers): Full-width, bordered, accent text on hover
+- **Configure Button**: Full-width, bordered, accent text on hover (shown for all providers)
 
-Inactive cards have `opacity-60`.
+Inactive cards use dashed border style (`bg-bg-secondary/40 border-dashed border-border-default`) instead of opacity reduction.
 
 ---
 
@@ -1221,7 +1251,7 @@ All icons come from `lucide-react`. Standard size: 12–16px, stroke width: 1.5.
 | Icon | Pages Used | Purpose |
 |---|---|---|
 | Activity | Sidebar, Observability | Observability nav, Runs tab |
-| AlertTriangle | Observability, Models, Agent Detail | Warnings, security flags |
+| AlertTriangle | Observability, Agent Detail | Warnings, security flags |
 | ArrowLeft | Agent Detail | Back navigation |
 | ArrowRight | Agents, Integrations | Connect buttons |
 | ArrowUpCircle | Agents | Update available indicator |
@@ -1238,7 +1268,7 @@ All icons come from `lucide-react`. Standard size: 12–16px, stroke width: 1.5.
 | Cpu | Sidebar, Pipelines | Agents nav, CPU specs |
 | Database | Integrations | Data source tab |
 | Download | Observability | Export button |
-| ExternalLink | Agents, Integrations | External links |
+| ExternalLink | Agents, Integrations, Observability | External links, open in Builder |
 | FileOutput | Pipelines | Output format |
 | FlaskConical | Agent Detail | Dry run button |
 | GitBranch | Agents, Integrations | Add store |
@@ -1249,7 +1279,8 @@ All icons come from `lucide-react`. Standard size: 12–16px, stroke width: 1.5.
 | Loader2 | Observability | Running spinner |
 | MemoryStick | Pipelines | RAM specs |
 | MoreHorizontal | Agent Detail | More menu |
-| OctagonX | Observability | Kill agent |
+| MarkerType | Agent Detail | Arrow marker on KILL edges (from @xyflow/react) |
+| OctagonX | Observability, Agent Detail | Kill agent, killed run status |
 | Package | Integrations | Plugin count |
 | Play | Pipelines, Agent Detail | Run now |
 | Plus | Agents, Models, Pipelines, Settings | New/add buttons |

@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Check, AlertTriangle } from "lucide-react";
+import { Plus } from "lucide-react";
 import { modelProviders } from "@/data/mock";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
@@ -20,13 +20,13 @@ const ModelsPage = () => {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {modelProviders.map((provider) => {
-          const isInactive = provider.status === "inactive";
-
-          return (
+        {modelProviders.map((provider) => (
             <div
               key={provider.id}
-              className={`bg-bg-secondary border border-border-subtle rounded-xl p-6 hover:border-border-default transition-colors ${isInactive ? "opacity-60" : ""}`}
+              className={provider.status === "inactive"
+                ? "bg-bg-secondary/40 border border-dashed border-border-default rounded-xl p-6 hover:border-white/25"
+                : "bg-bg-secondary border border-border-subtle rounded-xl p-6 hover:border-border-default"
+              }
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -42,24 +42,6 @@ const ModelsPage = () => {
                     {provider.status === "active" ? "Active" : "Not configured"}
                   </span>
                 </div>
-              </div>
-
-              <div className="mt-2 flex items-center gap-1.5">
-                {provider.keyConfigured ? (
-                  <>
-                    <Check size={12} className="text-success" />
-                    <span className="text-success text-[12px]">
-                      API key configured
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle size={12} className="text-warning" />
-                    <span className="text-warning text-[12px]">
-                      API key required
-                    </span>
-                  </>
-                )}
               </div>
 
               <div className="mt-4">
@@ -107,14 +89,11 @@ const ModelsPage = () => {
                 </div>
               </div>
 
-              {isInactive && (
-                <button className="mt-4 w-full text-center text-accent text-[13px] font-medium py-2 rounded-lg border border-border-subtle hover:border-accent transition-colors">
-                  Configure
-                </button>
-              )}
+              <button className="mt-4 w-full text-center text-accent text-[13px] font-medium py-2 rounded-lg border border-border-subtle hover:border-accent">
+                Configure
+              </button>
             </div>
-          );
-        })}
+        ))}
       </div>
     </div>
   );

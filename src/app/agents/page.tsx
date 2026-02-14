@@ -164,14 +164,14 @@ const AgentsPage = () => {
                           "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded",
                           store.source === "kraken"
                             ? "text-accent/80 bg-accent/8"
-                            : "text-text-muted bg-white/[0.04]"
+                            : "text-text-muted bg-white/[0.06]"
                         )}
                       >
                         {sourceConfig[store.source].label}
                       </span>
                     </div>
                     <span
-                      className="text-[10px] font-mono text-text-muted/50 mt-0.5 block truncate max-w-[240px]"
+                      className="text-[10px] font-mono text-text-muted/70 mt-0.5 block truncate max-w-[240px]"
                       title={store.url}
                     >
                       {formatStoreUrl(store.url)}
@@ -240,7 +240,7 @@ const AgentsPage = () => {
                 onFocus={() => setStoreUrlFocused(true)}
                 onBlur={() => setStoreUrlFocused(false)}
                 placeholder="github.com/org/kraken-agents"
-                className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/40 focus:outline-none w-full font-mono"
+                className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/60 focus:outline-none w-full font-mono"
               />
             </div>
             <button
@@ -323,7 +323,7 @@ const AgentsPage = () => {
                     {agent.triggers.map((trigger) => (
                       <span
                         key={trigger}
-                        className="bg-bg-tertiary text-text-muted text-[10px] font-mono px-2 py-0.5 rounded"
+                        className="bg-bg-tertiary text-text-secondary text-[10px] font-mono px-2 py-0.5 rounded"
                       >
                         {trigger}
                       </span>

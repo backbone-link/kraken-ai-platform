@@ -47,6 +47,8 @@ export interface FlowEdge {
   source: string;
   target: string;
   label?: string;
+  sourceHandle?: string;
+  targetHandle?: string;
 }
 
 // ─── Metrics Types ───
@@ -341,31 +343,134 @@ export const recentRuns: AgentRun[] = [
   { id: "run-007", agentId: "agt-005", agentName: "Price Optimization", status: "success", startedAt: "2026-02-13T10:30:00Z", duration: 3100, tokensUsed: 7800, cost: 0.22, trigger: "manual" },
 ];
 
-export const marketIntelligenceFlow: { nodes: FlowNode[]; edges: FlowEdge[] } = {
-  nodes: [
-    { id: "n1", type: "trigger", label: "Cron: Every Hour", x: 50, y: 200 },
-    { id: "n2", type: "security", label: "Input Validation", x: 250, y: 200 },
-    { id: "n3", type: "tool", label: "Fetch Market Data", x: 450, y: 100 },
-    { id: "n4", type: "tool", label: "Fetch Competitor Prices", x: 450, y: 300 },
-    { id: "n5", type: "model", label: "GPT-5.2: Analyze Trends", x: 700, y: 200 },
-    { id: "n6", type: "condition", label: "Arbitrage Found?", x: 950, y: 200 },
-    { id: "n7", type: "security", label: "Output Validation", x: 1150, y: 200 },
-    { id: "n10", type: "human", label: "Manager Approval", x: 1400, y: 200 },
-    { id: "n8", type: "action", label: "Send Slack Alert", x: 1650, y: 100 },
-    { id: "n9", type: "action", label: "Update Dashboard", x: 1650, y: 300 },
-  ],
-  edges: [
-    { id: "e1", source: "n1", target: "n2" },
-    { id: "e2", source: "n2", target: "n3" },
-    { id: "e3", source: "n2", target: "n4" },
-    { id: "e4", source: "n3", target: "n5" },
-    { id: "e5", source: "n4", target: "n5" },
-    { id: "e6", source: "n5", target: "n6" },
-    { id: "e7", source: "n6", target: "n7", label: "Yes" },
-    { id: "e10", source: "n6", target: "n9", label: "No" },
-    { id: "e8", source: "n7", target: "n10" },
-    { id: "e9", source: "n10", target: "n8", label: "Approved" },
-  ],
+export const agentFlows: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] }> = {
+  // ── Market Intelligence ──
+  "agt-001": {
+    nodes: [
+      { id: "n1", type: "trigger", label: "Cron: Every Hour", x: 50, y: 250 },
+      { id: "n2", type: "security", label: "Input Validation", x: 300, y: 250 },
+      { id: "n5", type: "model", label: "GPT-5.2: Analyze Trends", x: 620, y: 250 },
+      { id: "n3", type: "tool", label: "Fetch Market Data", x: 620, y: 70 },
+      { id: "n4", type: "tool", label: "Fetch Competitor Prices", x: 620, y: 430 },
+      { id: "n7", type: "security", label: "Output Validation", x: 940, y: 250 },
+      { id: "n6", type: "condition", label: "Arbitrage Found?", x: 1230, y: 250 },
+      { id: "n10", type: "human", label: "Manager Approval", x: 1500, y: 140 },
+      { id: "n8", type: "action", label: "Send Slack Alert", x: 1770, y: 140 },
+      { id: "n9", type: "action", label: "Update Dashboard", x: 1500, y: 370 },
+    ],
+    edges: [
+      { id: "e1", source: "n1", target: "n2" },
+      { id: "e2", source: "n2", target: "n5" },
+      { id: "e3", source: "n5", target: "n3", label: "tool call", sourceHandle: "tool-t", targetHandle: "bottom" },
+      { id: "e4", source: "n5", target: "n4", label: "tool call", sourceHandle: "tool-b", targetHandle: "top" },
+      { id: "e5", source: "n5", target: "n7" },
+      { id: "e6", source: "n7", target: "n6" },
+      { id: "e7", source: "n6", target: "n10", label: "Yes" },
+      { id: "e8", source: "n6", target: "n9", label: "No" },
+      { id: "e9", source: "n10", target: "n8", label: "Approved" },
+    ],
+  },
+  // ── Inventory Intelligence ──
+  "agt-002": {
+    nodes: [
+      { id: "t1", type: "trigger", label: "Cron: Every 30m", x: 50, y: 250 },
+      { id: "s1", type: "security", label: "Auth & Rate Check", x: 300, y: 250 },
+      { id: "m1", type: "model", label: "Claude Sonnet 4.5: Reconcile", x: 620, y: 250 },
+      { id: "t2", type: "tool", label: "Query Warehouse DB", x: 620, y: 70 },
+      { id: "t3", type: "tool", label: "Sync Shopify Levels", x: 620, y: 430 },
+      { id: "s2", type: "security", label: "Data Integrity Check", x: 940, y: 250 },
+      { id: "c1", type: "condition", label: "Conflicts Found?", x: 1230, y: 250 },
+      { id: "a1", type: "action", label: "Push Inventory Updates", x: 1500, y: 140 },
+      { id: "a2", type: "action", label: "Notify Slack", x: 1770, y: 140 },
+      { id: "a3", type: "action", label: "Log: No Changes", x: 1500, y: 370 },
+    ],
+    edges: [
+      { id: "e1", source: "t1", target: "s1" },
+      { id: "e2", source: "s1", target: "m1" },
+      { id: "e3", source: "m1", target: "t2", label: "tool call", sourceHandle: "tool-t", targetHandle: "bottom" },
+      { id: "e4", source: "m1", target: "t3", label: "tool call", sourceHandle: "tool-b", targetHandle: "top" },
+      { id: "e5", source: "m1", target: "s2" },
+      { id: "e6", source: "s2", target: "c1" },
+      { id: "e7", source: "c1", target: "a1", label: "Yes" },
+      { id: "e8", source: "c1", target: "a3", label: "No" },
+      { id: "e9", source: "a1", target: "a2" },
+    ],
+  },
+  // ── Demand Forecasting ──
+  "agt-003": {
+    nodes: [
+      { id: "t1", type: "trigger", label: "Daily Schedule", x: 50, y: 250 },
+      { id: "s1", type: "security", label: "Data Access Auth", x: 300, y: 250 },
+      { id: "m1", type: "model", label: "GPT-5.2: Forecast Model", x: 620, y: 250 },
+      { id: "t2", type: "tool", label: "Fetch Historical Sales", x: 620, y: 70 },
+      { id: "t3", type: "tool", label: "Fetch Market Signals", x: 620, y: 430 },
+      { id: "s2", type: "security", label: "Output Audit", x: 940, y: 250 },
+      { id: "a1", type: "action", label: "Write to Snowflake", x: 1230, y: 250 },
+    ],
+    edges: [
+      { id: "e1", source: "t1", target: "s1" },
+      { id: "e2", source: "s1", target: "m1" },
+      { id: "e3", source: "m1", target: "t2", label: "tool call", sourceHandle: "tool-t", targetHandle: "bottom" },
+      { id: "e4", source: "m1", target: "t3", label: "tool call", sourceHandle: "tool-b", targetHandle: "top" },
+      { id: "e5", source: "m1", target: "s2" },
+      { id: "e6", source: "s2", target: "a1" },
+    ],
+  },
+  // ── Customer Support Triage ──
+  "agt-004": {
+    nodes: [
+      { id: "t1", type: "trigger", label: "Zendesk Webhook", x: 50, y: 250 },
+      { id: "s1", type: "security", label: "Content Safety Check", x: 320, y: 250 },
+      { id: "m1", type: "model", label: "GPT-5-mini: Classify & Route", x: 640, y: 250 },
+      { id: "tl1", type: "tool", label: "Zendesk: Read Ticket", x: 640, y: 70 },
+      { id: "tl2", type: "tool", label: "Knowledge Base Lookup", x: 640, y: 430 },
+      { id: "s2", type: "security", label: "Response Safety Scan", x: 960, y: 250 },
+      { id: "c1", type: "condition", label: "Priority Level?", x: 1250, y: 250 },
+      { id: "a1", type: "action", label: "Update Zendesk Ticket", x: 1520, y: 140 },
+      { id: "a2", type: "action", label: "Escalate via Slack", x: 1790, y: 140 },
+      { id: "a3", type: "action", label: "Send Auto-Response", x: 1520, y: 370 },
+      { id: "r1", type: "report", label: "Incident Report", x: 320, y: 560 },
+      { id: "a4", type: "action", label: "Alert #security-incidents", x: 640, y: 560 },
+    ],
+    edges: [
+      { id: "e1", source: "t1", target: "s1" },
+      { id: "e2", source: "s1", target: "m1", label: "pass" },
+      { id: "e3", source: "s1", target: "r1", label: "PII \u2192 KILL", sourceHandle: "kill" },
+      { id: "e4", source: "m1", target: "tl1", label: "tool call", sourceHandle: "tool-t", targetHandle: "bottom" },
+      { id: "e5", source: "m1", target: "tl2", label: "tool call", sourceHandle: "tool-b", targetHandle: "top" },
+      { id: "e6", source: "m1", target: "s2" },
+      { id: "e7", source: "s2", target: "c1" },
+      { id: "e8", source: "c1", target: "a1", label: "P1/P2" },
+      { id: "e9", source: "c1", target: "a3", label: "P3+" },
+      { id: "e10", source: "a1", target: "a2" },
+      { id: "e11", source: "r1", target: "a4" },
+    ],
+  },
+  // ── Price Optimization ──
+  "agt-005": {
+    nodes: [
+      { id: "t1", type: "trigger", label: "Schedule / Manual", x: 50, y: 250 },
+      { id: "s1", type: "security", label: "Permission Check", x: 300, y: 250 },
+      { id: "m1", type: "model", label: "GPT-5.2: Optimize Prices", x: 620, y: 250 },
+      { id: "t2", type: "tool", label: "Fetch Current Prices", x: 620, y: 70 },
+      { id: "t3", type: "tool", label: "Fetch Competitor Prices", x: 620, y: 430 },
+      { id: "s2", type: "security", label: "Price Change Audit", x: 940, y: 250 },
+      { id: "c1", type: "condition", label: "Floor Hit?", x: 1230, y: 250 },
+      { id: "a1", type: "action", label: "Apply Price Changes", x: 1500, y: 140 },
+      { id: "h1", type: "human", label: "Manager Review", x: 1500, y: 370 },
+    ],
+    edges: [
+      { id: "e1", source: "t1", target: "s1" },
+      { id: "e2", source: "s1", target: "m1" },
+      { id: "e3", source: "m1", target: "t2", label: "tool call", sourceHandle: "tool-t", targetHandle: "bottom" },
+      { id: "e4", source: "m1", target: "t3", label: "tool call", sourceHandle: "tool-b", targetHandle: "top" },
+      { id: "e5", source: "m1", target: "s2" },
+      { id: "e6", source: "s2", target: "c1" },
+      { id: "e7", source: "c1", target: "a1", label: "Clear" },
+      { id: "e8", source: "c1", target: "h1", label: "Flagged" },
+      { id: "e9", source: "h1", target: "a1", label: "Approved" },
+    ],
+  },
 };
 
 export const dashboardMetrics = {

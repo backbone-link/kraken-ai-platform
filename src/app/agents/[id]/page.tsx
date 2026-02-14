@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  MarkerType,
   type Node,
   type Edge,
   type NodeProps,
@@ -13,7 +14,7 @@ import {
   Position,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { agents, marketIntelligenceFlow, sampleTrace } from "@/data/mock";
+import { agents, agentFlows, detailedAgentRuns } from "@/data/mock";
 import type { TraceStep, IntegrationSource } from "@/data/mock";
 import {
   ArrowLeft,
@@ -30,8 +31,10 @@ import {
   BadgeCheck,
   GitFork,
   Terminal,
+  OctagonX,
 } from "lucide-react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const nodeTypeColors: Record<string, string> = {
@@ -43,6 +46,7 @@ const nodeTypeColors: Record<string, string> = {
   action: "#34d399",
   human: "#f472b6",
   agent: "#e8622c",
+  report: "#ef4444",
 };
 
 const nodeTypeLabels: Record<string, string> = {
@@ -54,10 +58,12 @@ const nodeTypeLabels: Record<string, string> = {
   action: "Action",
   human: "Human",
   agent: "Agent",
+  report: "Report",
 };
 
 const CustomNode = ({ data }: NodeProps) => {
   const color = nodeTypeColors[data.nodeType as string] ?? "#999";
+  const isSecurity = data.nodeType === "security";
 
   return (
     <div className="relative">
@@ -87,11 +93,77 @@ const CustomNode = ({ data }: NodeProps) => {
         position={Position.Right}
         className="!w-2 !h-2 !bg-bg-elevated !border !border-border-default"
       />
+      {isSecurity && (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="kill"
+          className="!w-2 !h-2 !bg-red-500/30 !border !border-red-500"
+        />
+      )}
     </div>
   );
 };
 
-const nodeTypes = { custom: CustomNode };
+const ModelNode = ({ data }: NodeProps) => (
+  <div className="relative">
+    <Handle
+      type="target"
+      position={Position.Left}
+      className="!w-2.5 !h-2.5 !bg-[#a78bfa]/20 !border-2 !border-[#a78bfa]/60"
+    />
+    <Handle
+      type="source"
+      position={Position.Right}
+      className="!w-2.5 !h-2.5 !bg-[#a78bfa]/20 !border-2 !border-[#a78bfa]/60"
+    />
+    <Handle
+      type="source"
+      position={Position.Top}
+      id="tool-t"
+      className="!w-2 !h-2 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/60"
+    />
+    <Handle
+      type="source"
+      position={Position.Bottom}
+      id="tool-b"
+      className="!w-2 !h-2 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/60"
+    />
+    <div className="bg-[#a78bfa]/[0.06] border-2 border-[#a78bfa]/30 rounded-xl px-5 py-3.5 min-w-[220px] shadow-[0_0_24px_rgba(167,139,250,0.10)]">
+      <span className="text-[9px] font-mono uppercase tracking-wider text-[#a78bfa]">
+        Model
+      </span>
+      <div className="text-[13px] text-text-primary font-semibold leading-tight mt-0.5">
+        {data.label as string}
+      </div>
+    </div>
+  </div>
+);
+
+const ToolNode = ({ data }: NodeProps) => (
+  <div className="relative">
+    <Handle
+      type="target"
+      position={Position.Bottom}
+      id="bottom"
+      className="!w-1.5 !h-1.5 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/50"
+    />
+    <Handle
+      type="target"
+      position={Position.Top}
+      id="top"
+      className="!w-1.5 !h-1.5 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/50"
+    />
+    <div className="border border-dashed border-[#2dd4bf]/30 rounded-full px-3.5 py-1.5 bg-[#2dd4bf]/[0.04] flex items-center gap-2">
+      <div className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]/60 shrink-0" />
+      <span className="text-[11px] text-[#2dd4bf]/70 font-medium whitespace-nowrap">
+        {data.label as string}
+      </span>
+    </div>
+  </div>
+);
+
+const nodeTypes = { custom: CustomNode, modelNode: ModelNode, toolNode: ToolNode };
 
 const sourceConfig: Record<
   IntegrationSource,
@@ -134,34 +206,6 @@ const SourceBadge = ({
     </span>
   );
 };
-
-const agent = agents[0];
-
-const rfNodes: Node[] = marketIntelligenceFlow.nodes.map((n) => ({
-  id: n.id,
-  position: { x: n.x, y: n.y },
-  data: { label: n.label, nodeType: n.type },
-  type: "custom",
-}));
-
-const rfEdges: Edge[] = marketIntelligenceFlow.edges.map((e) => ({
-  id: e.id,
-  source: e.source,
-  target: e.target,
-  label: e.label,
-  style: { stroke: "rgba(255,255,255,0.15)", strokeWidth: 1.5 },
-  labelStyle: {
-    fill: "#999",
-    fontSize: 10,
-    fontFamily: "var(--font-mono), monospace",
-  },
-  labelBgStyle: {
-    fill: "#111",
-    fillOpacity: 0.9,
-  },
-  labelBgPadding: [6, 3] as [number, number],
-  labelBgBorderRadius: 4,
-}));
 
 const statusIcons: Record<TraceStep["status"], typeof CheckCircle2> = {
   success: CheckCircle2,
@@ -239,7 +283,59 @@ const TraceStepRow = ({ step }: { step: TraceStep }) => {
 };
 
 const AgentDetailPage = () => {
+  const params = useParams();
+  const agentId = params.id as string;
+  const agent = agents.find((a) => a.id === agentId) ?? agents[0];
+  const flow = agentFlows[agent.id];
+  const agentRuns = detailedAgentRuns.filter((r) => r.agentId === agent.id);
+  const latestRun = agentRuns[0];
+
   const [activeTab, setActiveTab] = useState<"builder" | "runs">("builder");
+
+  const rfNodes: Node[] = useMemo(
+    () =>
+      flow?.nodes.map((n) => ({
+        id: n.id,
+        position: { x: n.x, y: n.y },
+        data: { label: n.label, nodeType: n.type },
+        type: n.type === "model" ? "modelNode" : n.type === "tool" ? "toolNode" : "custom",
+      })) ?? [],
+    [flow]
+  );
+
+  const rfEdges: Edge[] = useMemo(
+    () =>
+      flow?.edges.map((e) => {
+        const isToolCall = e.label === "tool call";
+        const isKill = e.label?.includes("KILL") ?? false;
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+          label: e.label,
+          type: "smoothstep",
+          animated: isToolCall,
+          style: {
+            stroke: isKill ? "#ef4444" : isToolCall ? "rgba(45,212,191,0.4)" : "rgba(255,255,255,0.20)",
+            strokeWidth: isKill ? 2 : 1.5,
+            strokeDasharray: isToolCall ? "6 3" : isKill ? "6 3" : undefined,
+          },
+          labelStyle: {
+            fill: isKill ? "#ef4444" : isToolCall ? "#2dd4bf" : "#a3a3a3",
+            fontSize: 10,
+            fontFamily: "var(--font-mono), monospace",
+            fontWeight: isKill ? 600 : 400,
+          },
+          labelBgStyle: { fill: "#1a1a1a", fillOpacity: 0.95 },
+          labelBgPadding: [6, 3] as [number, number],
+          labelBgBorderRadius: 4,
+          markerEnd: isKill ? { type: MarkerType.ArrowClosed, color: "#ef4444" } : undefined,
+        };
+      }) ?? [],
+    [flow]
+  );
 
   const onInit = useCallback(() => {}, []);
 
@@ -261,13 +357,22 @@ const AgentDetailPage = () => {
             <span className="text-[10px] font-mono text-text-muted border border-border-subtle rounded px-1.5 py-0.5">
               v{agent.version}
             </span>
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-400/10 rounded px-1.5 py-0.5">
-              Published
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              Running
-            </span>
+            {(() => {
+              const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
+                running: { label: "Running", color: "text-emerald-400", bg: "bg-emerald-400/10" },
+                idle: { label: "Idle", color: "text-text-muted", bg: "bg-white/[0.04]" },
+                error: { label: "Error", color: "text-red-400", bg: "bg-red-400/10" },
+                paused: { label: "Paused", color: "text-yellow-400", bg: "bg-yellow-400/10" },
+                killed: { label: "Killed", color: "text-red-500", bg: "bg-red-500/10" },
+              };
+              const s = statusConfig[agent.status];
+              return (
+                <span className={cn("flex items-center gap-1.5 text-[11px] font-medium", s.color)}>
+                  <span className={cn("w-1.5 h-1.5 rounded-full", s.color.replace("text-", "bg-"))} />
+                  {s.label}
+                </span>
+              );
+            })()}
             <SourceBadge
               source={agent.source}
               detail={agent.sourceDetail}
@@ -346,14 +451,14 @@ const AgentDetailPage = () => {
                 variant={"dots" as never}
                 gap={20}
                 size={1}
-                color="rgba(255,255,255,0.05)"
+                color="rgba(255,255,255,0.07)"
               />
               <Controls
                 showInteractive={false}
                 position="bottom-right"
               />
               <MiniMap
-                nodeColor={() => "rgba(255,255,255,0.15)"}
+                nodeColor={() => "rgba(255,255,255,0.20)"}
                 maskColor="rgba(0,0,0,0.7)"
                 position="bottom-left"
               />
@@ -368,7 +473,7 @@ const AgentDetailPage = () => {
                   className="w-2.5 h-2.5 rounded-sm"
                   style={{ backgroundColor: color }}
                 />
-                <span className="text-[11px] font-mono text-text-muted capitalize">
+                <span className="text-[11px] font-mono text-text-secondary capitalize">
                   {type}
                 </span>
               </div>
@@ -437,99 +542,100 @@ const AgentDetailPage = () => {
       {/* Runs Tab */}
       {activeTab === "runs" && (
         <div className="space-y-4">
-          {/* Run summary */}
-          <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[13px] font-medium text-text-primary">
-                Latest Execution
-              </h3>
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5 text-[11px] font-medium text-success">
-                  <CheckCircle2 size={13} />
-                  Success
-                </span>
-                <span className="text-[11px] font-mono text-text-muted">
-                  Total: 2.85s
-                </span>
-              </div>
-            </div>
-
-            {/* Timeline */}
-            <div className="bg-bg-primary rounded-lg border border-border-subtle overflow-hidden">
-              {sampleTrace.map((step) => (
-                <TraceStepRow key={step.id} step={step} />
-              ))}
-            </div>
-          </div>
-
-          {/* Recent runs list */}
-          <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
-            <h3 className="text-[13px] font-medium text-text-primary mb-4">
-              Run History
-            </h3>
-            <div className="space-y-2">
-              {[
-                {
-                  id: "run-003",
-                  time: "14:15",
-                  status: "success" as const,
-                  duration: "2.34s",
-                  tokens: "6,200",
-                },
-                {
-                  id: "run-005",
-                  time: "13:15",
-                  status: "error" as const,
-                  duration: "4.50s",
-                  tokens: "3,100",
-                },
-                {
-                  id: "run-prev1",
-                  time: "12:15",
-                  status: "success" as const,
-                  duration: "2.18s",
-                  tokens: "5,800",
-                },
-                {
-                  id: "run-prev2",
-                  time: "11:15",
-                  status: "success" as const,
-                  duration: "2.52s",
-                  tokens: "6,400",
-                },
-                {
-                  id: "run-prev3",
-                  time: "10:15",
-                  status: "success" as const,
-                  duration: "2.01s",
-                  tokens: "5,200",
-                },
-              ].map((run) => (
-                <div
-                  key={run.id}
-                  className="flex items-center gap-4 px-4 py-2.5 rounded-lg bg-bg-primary border border-border-subtle"
-                >
-                  {run.status === "success" ? (
-                    <CheckCircle2 size={14} className="text-success shrink-0" />
-                  ) : (
-                    <XCircle size={14} className="text-error shrink-0" />
-                  )}
-                  <span className="text-[12px] font-mono text-text-secondary w-12">
-                    {run.time}
-                  </span>
-                  <span className="text-[12px] text-text-primary flex-1">
-                    Market Intelligence
-                  </span>
-                  <span className="text-[11px] font-mono text-text-muted">
-                    {run.duration}
-                  </span>
-                  <span className="text-[11px] font-mono text-text-muted">
-                    {run.tokens} tokens
-                  </span>
+          {latestRun ? (
+            <>
+              <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[13px] font-medium text-text-primary">
+                    Latest Execution
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    {latestRun.status === "killed" ? (
+                      <span className="flex items-center gap-1.5 text-[11px] font-medium text-red-400">
+                        <XCircle size={13} />
+                        Killed
+                      </span>
+                    ) : latestRun.status === "error" ? (
+                      <span className="flex items-center gap-1.5 text-[11px] font-medium text-error">
+                        <XCircle size={13} />
+                        Error
+                      </span>
+                    ) : latestRun.status === "running" ? (
+                      <span className="flex items-center gap-1.5 text-[11px] font-medium text-warning">
+                        <Clock size={13} />
+                        Running
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-[11px] font-medium text-success">
+                        <CheckCircle2 size={13} />
+                        Success
+                      </span>
+                    )}
+                    <span className="text-[11px] font-mono text-text-muted">
+                      Total: {latestRun.duration >= 1000 ? `${(latestRun.duration / 1000).toFixed(2)}s` : `${latestRun.duration}ms`}
+                    </span>
+                  </div>
                 </div>
-              ))}
+
+                {latestRun.killedReason && (
+                  <div className="flex items-start gap-2.5 bg-red-500/[0.06] border border-red-500/20 rounded-lg px-4 py-3 mb-4">
+                    <OctagonX size={14} className="text-red-400 shrink-0 mt-0.5" />
+                    <span className="text-[12px] text-red-400">{latestRun.killedReason}</span>
+                  </div>
+                )}
+
+                <div className="bg-bg-primary rounded-lg border border-border-subtle overflow-hidden">
+                  {latestRun.traceSteps.map((step) => (
+                    <TraceStepRow key={step.id} step={step} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Run History */}
+              <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
+                <h3 className="text-[13px] font-medium text-text-primary mb-4">
+                  Run History
+                </h3>
+                <div className="space-y-2">
+                  {agentRuns.map((run) => (
+                    <div
+                      key={run.id}
+                      className="flex items-center gap-4 px-4 py-2.5 rounded-lg bg-bg-primary border border-border-subtle"
+                    >
+                      {run.status === "success" ? (
+                        <CheckCircle2 size={14} className="text-success shrink-0" />
+                      ) : run.status === "killed" ? (
+                        <OctagonX size={14} className="text-red-500 shrink-0" />
+                      ) : run.status === "running" ? (
+                        <Clock size={14} className="text-warning shrink-0" />
+                      ) : (
+                        <XCircle size={14} className="text-error shrink-0" />
+                      )}
+                      <span className="text-[12px] font-mono text-text-secondary w-12">
+                        {new Date(run.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                      </span>
+                      <span className="text-[12px] text-text-primary flex-1">
+                        {run.agentName}
+                      </span>
+                      <span className="text-[11px] font-mono text-text-muted">
+                        {run.duration >= 1000 ? `${(run.duration / 1000).toFixed(2)}s` : `${run.duration}ms`}
+                      </span>
+                      <span className="text-[11px] font-mono text-text-muted">
+                        {run.tokensUsed.toLocaleString()} tokens
+                      </span>
+                      {run.status === "killed" && (
+                        <span className="text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">KILLED</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="bg-bg-secondary border border-border-subtle rounded-xl p-8 text-center">
+              <p className="text-[13px] text-text-muted">No runs recorded for this agent.</p>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

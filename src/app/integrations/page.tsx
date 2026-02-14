@@ -100,8 +100,8 @@ const StoreRow = ({ store }: { store: PluginStore }) => {
           store.source === "kraken"
             ? "bg-accent/10"
             : store.source === "custom"
-              ? "bg-white/[0.04]"
-              : "bg-white/[0.04]"
+              ? "bg-white/[0.06]"
+              : "bg-white/[0.06]"
         )}
       >
         <SrcIcon
@@ -290,7 +290,7 @@ const DetailPanel = ({
               </span>
               {integration.version && (
                 <>
-                  <span className="text-text-muted/30">&middot;</span>
+                  <span className="text-text-muted/50">&middot;</span>
                   <span className="text-[10px] font-mono text-text-muted">
                     v{integration.version}
                   </span>
@@ -343,7 +343,7 @@ const DetailPanel = ({
           </div>
           {integration.lastSync && (
             <>
-              <span className="text-text-muted/20">|</span>
+              <span className="text-text-muted/40">|</span>
               <div className="flex items-center gap-1.5">
                 <RefreshCw size={10} className="text-text-muted" />
                 <span className="text-[11px] font-mono text-text-muted">
@@ -352,7 +352,7 @@ const DetailPanel = ({
               </div>
             </>
           )}
-          <span className="text-text-muted/20">|</span>
+          <span className="text-text-muted/40">|</span>
           <div className="flex items-center gap-1.5">
             <SrcIcon size={10} className={src.className} />
             <span
@@ -511,7 +511,7 @@ const IntegrationsPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-px bg-border-subtle/30">
+        <div className="grid grid-cols-4 gap-px bg-border-subtle/50">
           {pluginStores.map((store) => (
             <StoreRow key={store.id} store={store} />
           ))}
@@ -542,7 +542,7 @@ const IntegrationsPage = () => {
                 onFocus={() => setStoreUrlFocused(true)}
                 onBlur={() => setStoreUrlFocused(false)}
                 placeholder="github.com/org/kraken-plugins"
-                className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/40 focus:outline-none w-full font-mono"
+                className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/60 focus:outline-none w-full font-mono"
               />
             </div>
             <button
@@ -557,7 +557,7 @@ const IntegrationsPage = () => {
               <ArrowRight size={10} />
             </button>
           </div>
-          <p className="text-[10px] text-text-muted/50 mt-2 ml-[26px]">
+          <p className="text-[10px] text-text-muted/70 mt-2 ml-[26px]">
             Add a GitHub repository as a plugin store. Repos must follow the Kraken plugin spec.
           </p>
         </div>
@@ -588,7 +588,7 @@ const IntegrationsPage = () => {
                   "text-[11px] font-mono ml-0.5",
                   activeTab === tab.key
                     ? "text-text-secondary"
-                    : "text-text-muted/60"
+                    : "text-text-muted/70"
                 )}
               >
                 {subscribedCounts[tab.key]}
@@ -637,7 +637,7 @@ const IntegrationsPage = () => {
                 <h2 className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
                   Available
                 </h2>
-                <div className="flex-1 h-px bg-border-subtle/50" />
+                <div className="flex-1 h-px bg-border-subtle/70" />
               </div>
               <div className="space-y-1">
                 {available.map((integration) => (
