@@ -454,7 +454,7 @@ const ModelNode = ({ data }: NodeProps) => {
       />
       <div
         className={cn(
-          "bg-[#a78bfa]/[0.06] border-2 border-[#a78bfa]/30 rounded-xl px-5 py-3.5 min-w-[220px] shadow-[0_0_24px_rgba(167,139,250,0.10)] transition-shadow",
+          "bg-[#a78bfa]/[0.09] border-2 border-[#a78bfa]/40 rounded-xl px-5 py-3.5 min-w-[220px] shadow-[0_0_24px_rgba(167,139,250,0.10)] transition-shadow",
           executionRingClass[execState]
         )}
       >
@@ -523,12 +523,12 @@ const ToolNode = ({ data }: NodeProps) => {
       />
       <div
         className={cn(
-          "border border-dashed border-[#2dd4bf]/30 rounded-full px-3.5 py-1.5 bg-[#2dd4bf]/[0.04] flex items-center gap-2 transition-shadow",
+          "border border-dashed border-[#2dd4bf]/40 rounded-full px-3.5 py-1.5 bg-[#2dd4bf]/[0.07] flex items-center gap-2 transition-shadow",
           executionRingClass[execState]
         )}
       >
-        <Wrench size={10} className="text-[#2dd4bf]/60 shrink-0" />
-        <span className="text-[11px] text-[#2dd4bf]/70 font-medium whitespace-nowrap">
+        <Wrench size={10} className="text-[#2dd4bf]/80 shrink-0" />
+        <span className="text-[11px] text-[#2dd4bf]/85 font-medium whitespace-nowrap">
           {data.label as string}
         </span>
         {execState === "completed" && (
@@ -580,7 +580,7 @@ const AnimatedEdge = ({
             ? "#60a5fa"
             : isCompleted
               ? "rgba(74,202,138,0.5)"
-              : "rgba(255,255,255,0.20)"
+              : "rgba(255,255,255,0.30)"
         }
         strokeWidth={isActive ? 2.5 : isCompleted ? 2 : 1.5}
       />
@@ -612,7 +612,7 @@ const ComponentPalette = ({
           key={cat.type}
           draggable
           onDragStart={(e) => onDragStart(e, cat.type)}
-          className="group flex items-center gap-2.5 bg-bg-secondary border border-border-subtle rounded-lg px-3.5 py-2.5 cursor-grab active:cursor-grabbing hover:border-border-default hover:bg-white/[0.02] transition-all select-none"
+          className="group flex items-center gap-2.5 bg-bg-secondary border border-border-subtle rounded-lg px-3.5 py-2.5 cursor-grab active:cursor-grabbing hover:border-border-default hover:bg-white/[0.05] transition-all select-none"
           style={{ borderLeftWidth: 3, borderLeftColor: color }}
         >
           <Icon
@@ -675,7 +675,7 @@ const NodeConfigPanel = ({
           <input
             value={config.title}
             onChange={(e) => onUpdate({ ...config, title: e.target.value })}
-            className="w-full bg-bg-primary border border-border-subtle rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent/30 transition-colors"
+            className="w-full bg-bg-primary border border-border-subtle rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted/80 focus:outline-none focus:border-accent/30 transition-colors"
             placeholder={`Name this ${nodeTypeLabels[nodeType]?.toLowerCase() ?? "node"}...`}
           />
         </div>
@@ -711,7 +711,7 @@ const NodeConfigPanel = ({
                 onChange={(e) =>
                   onUpdate({ ...config, systemPrompt: e.target.value })
                 }
-                className="w-full bg-bg-primary border border-border-subtle rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent/30 transition-colors resize-none"
+                className="w-full bg-bg-primary border border-border-subtle rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted/80 focus:outline-none focus:border-accent/30 transition-colors resize-none"
                 rows={4}
                 placeholder="Enter system instructions for this model..."
               />
@@ -856,7 +856,7 @@ const TraceStepRow = ({ step }: { step: TraceStep }) => {
     <div className="border-b border-border-subtle last:border-b-0">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors text-left"
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.05] transition-colors text-left"
       >
         <div
           className="w-2 h-2 rounded-full shrink-0"
@@ -1019,7 +1019,7 @@ const AgentDetailPage = () => {
         type: isLoop ? "default" : "smoothstep",
         animated: isToolCall,
         style: {
-          stroke: isKill ? "#ef4444" : isLoop ? "rgba(232,98,44,0.5)" : isSpawn || isDispatch ? "rgba(232,98,44,0.4)" : isToolCall ? "rgba(45,212,191,0.4)" : "rgba(255,255,255,0.20)",
+          stroke: isKill ? "#ef4444" : isLoop ? "rgba(232,98,44,0.5)" : isSpawn || isDispatch ? "rgba(232,98,44,0.4)" : isToolCall ? "rgba(45,212,191,0.4)" : "rgba(255,255,255,0.30)",
           strokeWidth: isKill ? 2 : isLoop ? 2 : 1.5,
           strokeDasharray: isToolCall ? "6 3" : isKill ? "6 3" : isLoop ? "8 4" : isSpawn || isDispatch ? "4 2" : undefined,
         },
@@ -1029,7 +1029,7 @@ const AgentDetailPage = () => {
           fontFamily: "var(--font-mono), monospace",
           fontWeight: isKill ? 600 : 400,
         },
-        labelBgStyle: { fill: "#1a1a1a", fillOpacity: 0.95 },
+        labelBgStyle: { fill: "#1e1e1e", fillOpacity: 0.95 },
         labelBgPadding: [6, 3] as [number, number],
         labelBgBorderRadius: 4,
         markerEnd: isKill ? { type: MarkerType.ArrowClosed, color: "#ef4444" } : undefined,
@@ -1150,7 +1150,7 @@ const AgentDetailPage = () => {
         {
           ...connection,
           type: "smoothstep",
-          style: { stroke: "rgba(255,255,255,0.30)", strokeWidth: 1.5 },
+          style: { stroke: "rgba(255,255,255,0.40)", strokeWidth: 1.5 },
         },
         prev
       )
@@ -1204,7 +1204,7 @@ const AgentDetailPage = () => {
             {(() => {
               const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
                 running: { label: "Running", color: "text-emerald-400", bg: "bg-emerald-400/10" },
-                idle: { label: "Idle", color: "text-text-muted", bg: "bg-white/[0.04]" },
+                idle: { label: "Idle", color: "text-text-muted", bg: "bg-white/[0.07]" },
                 error: { label: "Error", color: "text-red-400", bg: "bg-red-400/10" },
                 paused: { label: "Paused", color: "text-yellow-400", bg: "bg-yellow-400/10" },
                 killed: { label: "Killed", color: "text-red-500", bg: "bg-red-500/10" },
@@ -1321,7 +1321,7 @@ const AgentDetailPage = () => {
                 variant={"dots" as never}
                 gap={20}
                 size={1}
-                color="rgba(255,255,255,0.07)"
+                color="rgba(255,255,255,0.12)"
               />
               <Controls
                 showInteractive={false}

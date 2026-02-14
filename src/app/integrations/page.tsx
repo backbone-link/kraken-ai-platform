@@ -113,7 +113,7 @@ const RenderedMarkdown = ({ content }: { content: string }) => {
         if (codeMatch && (!boldMatch || codeMatch.index! <= boldMatch.index!)) {
           if (codeMatch[1]) parts.push(codeMatch[1]);
           parts.push(
-            <code key={inlineKey++} className="text-[11px] bg-white/[0.06] border border-white/[0.08] rounded px-1 py-0.5 text-accent/80">
+            <code key={inlineKey++} className="text-[11px] bg-white/[0.09] border border-white/[0.12] rounded px-1 py-0.5 text-accent">
               {codeMatch[2]}
             </code>
           );
@@ -148,13 +148,13 @@ const RenderedMarkdown = ({ content }: { content: string }) => {
         }
         i++; // skip closing ```
         result.push(
-          <div key={key++} className="my-2 rounded-md border border-white/[0.08] overflow-hidden">
+          <div key={key++} className="my-2 rounded-md border border-white/[0.12] overflow-hidden">
             {lang && (
-              <div className="px-3 py-1 bg-white/[0.03] border-b border-white/[0.06] text-[9px] font-mono uppercase tracking-wider text-text-muted">
+              <div className="px-3 py-1 bg-white/[0.06] border-b border-white/[0.06] text-[9px] font-mono uppercase tracking-wider text-text-muted">
                 {lang}
               </div>
             )}
-            <pre className="p-3 overflow-x-auto text-[11px] leading-[1.6] text-text-secondary bg-white/[0.02]">
+            <pre className="p-3 overflow-x-auto text-[11px] leading-[1.6] text-text-secondary bg-white/[0.05]">
               <code>{codeLines.join("\n")}</code>
             </pre>
           </div>
@@ -188,7 +188,7 @@ const RenderedMarkdown = ({ content }: { content: string }) => {
         while (i < lines.length && lines[i].match(/^- /)) {
           items.push(
             <li key={listKey++} className="flex gap-2 text-[12px] text-text-secondary leading-relaxed">
-              <span className="text-text-muted/60 shrink-0 mt-[2px]">&#8226;</span>
+              <span className="text-text-muted shrink-0 mt-[2px]">&#8226;</span>
               <span>{renderInline(lines[i].slice(2))}</span>
             </li>
           );
@@ -225,15 +225,15 @@ const MarketplaceRow = ({ marketplace }: { marketplace: PluginMarketplace }) => 
   const SrcIcon = src.icon;
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.02] transition-colors group">
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.05] transition-colors group">
       <div
         className={cn(
           "w-7 h-7 rounded-md flex items-center justify-center shrink-0",
           marketplace.source === "kraken"
             ? "bg-accent/10"
             : marketplace.source === "custom"
-              ? "bg-white/[0.06]"
-              : "bg-white/[0.06]"
+              ? "bg-white/[0.09]"
+              : "bg-white/[0.09]"
         )}
       >
         <SrcIcon
@@ -254,10 +254,10 @@ const MarketplaceRow = ({ marketplace }: { marketplace: PluginMarketplace }) => 
             className={cn(
               "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded",
               marketplace.source === "kraken"
-                ? "text-accent/80 bg-accent/8"
+                ? "text-accent bg-accent/8"
                 : marketplace.source === "custom"
-                  ? "text-text-muted bg-white/[0.04]"
-                  : "text-text-muted bg-white/[0.04]"
+                  ? "text-text-muted bg-white/[0.07]"
+                  : "text-text-muted bg-white/[0.07]"
             )}
           >
             {src.label}
@@ -300,7 +300,7 @@ const IntegrationRow = ({
         "w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
         isSelected
           ? "bg-accent/[0.06] border border-accent/25"
-          : "border border-transparent hover:bg-white/[0.02]"
+          : "border border-transparent hover:bg-white/[0.05]"
       )}
     >
       <div
@@ -422,7 +422,7 @@ const DetailPanel = ({
               </span>
               {integration.version && (
                 <>
-                  <span className="text-text-muted/50">&middot;</span>
+                  <span className="text-text-muted/70">&middot;</span>
                   <span className="text-[10px] font-mono text-text-muted">
                     v{integration.version}
                   </span>
@@ -436,7 +436,7 @@ const DetailPanel = ({
             className={cn(
               "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors",
               integration.enabled
-                ? "text-text-muted hover:text-text-secondary hover:bg-white/[0.03]"
+                ? "text-text-muted hover:text-text-secondary hover:bg-white/[0.06]"
                 : "text-accent hover:text-accent-hover hover:bg-accent/5"
             )}
           >
@@ -554,7 +554,7 @@ const DetailPanel = ({
               <span className="text-[12px] font-mono text-text-secondary truncate">
                 {integration.githubUrl.replace("https://github.com/", "")}
               </span>
-              <ExternalLink size={10} className="text-text-muted/60 group-hover:text-text-secondary shrink-0 ml-auto" />
+              <ExternalLink size={10} className="text-text-muted group-hover:text-text-secondary shrink-0 ml-auto" />
             </a>
           </div>
         )}
@@ -622,7 +622,7 @@ const DetailPanel = ({
               </label>
             </div>
             <div className="bg-bg-primary border border-border-subtle rounded-lg overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-subtle bg-white/[0.02]">
+              <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-subtle bg-white/[0.05]">
                 <FileText size={10} className="text-text-muted" />
                 <span className="text-[10px] font-mono text-text-muted">Markdown</span>
               </div>
@@ -688,7 +688,7 @@ const IntegrationsPage = () => {
             <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
               Plugin Marketplaces
             </span>
-            <span className="text-[10px] font-mono text-text-muted/60 ml-1">
+            <span className="text-[10px] font-mono text-text-muted ml-1">
               {pluginMarketplaces.length} connected
             </span>
           </div>
@@ -700,7 +700,7 @@ const IntegrationsPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-px bg-border-subtle/50">
+        <div className="grid grid-cols-4 gap-px bg-border-subtle">
           {pluginMarketplaces.map((marketplace) => (
             <MarketplaceRow key={marketplace.id} marketplace={marketplace} />
           ))}
@@ -731,7 +731,7 @@ const IntegrationsPage = () => {
                 onFocus={() => setMarketplaceUrlFocused(true)}
                 onBlur={() => setMarketplaceUrlFocused(false)}
                 placeholder="github.com/org/kraken-plugins"
-                className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/60 focus:outline-none w-full font-mono"
+                className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/80 focus:outline-none w-full font-mono"
               />
             </div>
             <button
@@ -739,14 +739,14 @@ const IntegrationsPage = () => {
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors shrink-0",
                 marketplaceUrl.length > 0
                   ? "bg-accent hover:bg-accent-hover text-white"
-                  : "bg-white/[0.04] text-text-muted"
+                  : "bg-white/[0.07] text-text-muted"
               )}
             >
               Connect
               <ArrowRight size={10} />
             </button>
           </div>
-          <p className="text-[10px] text-text-muted/70 mt-2 ml-[26px]">
+          <p className="text-[10px] text-text-muted mt-2 ml-[26px]">
             Add a GitHub repository as a plugin marketplace. Repos must follow the Kraken plugin spec.
           </p>
         </div>
@@ -777,7 +777,7 @@ const IntegrationsPage = () => {
                   "text-[11px] font-mono ml-0.5",
                   activeTab === tab.key
                     ? "text-text-secondary"
-                    : "text-text-muted/70"
+                    : "text-text-muted"
                 )}
               >
                 {subscribedCounts[tab.key]}

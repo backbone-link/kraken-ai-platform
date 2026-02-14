@@ -71,7 +71,7 @@ const UsagePage = () => (
               <span className="text-[11px] font-mono font-medium text-accent bg-accent/10 px-2 py-1 rounded">
                 {billingPlan.apiMultiplier}× multiplier
               </span>
-              <span className="text-[11px] font-mono text-text-muted bg-white/[0.04] px-2 py-1 rounded">
+              <span className="text-[11px] font-mono text-text-muted bg-white/[0.07] px-2 py-1 rounded">
                 {billingPlan.name}
               </span>
             </div>

@@ -203,7 +203,7 @@ export const AgentConfigPanel = ({ config, onChange }: AgentConfigPanelProps) =>
                   "text-[9px] font-mono px-2 py-0.5 rounded transition-colors",
                   config.notifications.onSuccess
                     ? "bg-emerald-400/15 text-emerald-400"
-                    : "bg-white/[0.04] text-text-muted hover:bg-white/[0.08]"
+                    : "bg-white/[0.07] text-text-muted hover:bg-white/[0.12]"
                 )}
               >
                 success
@@ -222,7 +222,7 @@ export const AgentConfigPanel = ({ config, onChange }: AgentConfigPanelProps) =>
                   "text-[9px] font-mono px-2 py-0.5 rounded transition-colors",
                   config.notifications.onFailure
                     ? "bg-red-400/15 text-red-400"
-                    : "bg-white/[0.04] text-text-muted hover:bg-white/[0.08]"
+                    : "bg-white/[0.07] text-text-muted hover:bg-white/[0.12]"
                 )}
               >
                 failure
@@ -241,7 +241,7 @@ export const AgentConfigPanel = ({ config, onChange }: AgentConfigPanelProps) =>
                   "text-[9px] font-mono px-2 py-0.5 rounded transition-colors",
                   config.notifications.onTimeout
                     ? "bg-yellow-400/15 text-yellow-400"
-                    : "bg-white/[0.04] text-text-muted hover:bg-white/[0.08]"
+                    : "bg-white/[0.07] text-text-muted hover:bg-white/[0.12]"
                 )}
               >
                 timeout
@@ -333,7 +333,7 @@ export const AgentConfigPanel = ({ config, onChange }: AgentConfigPanelProps) =>
             onClick={() => onChange({ ...config, autoRecover: !config.autoRecover })}
             className={cn(
               "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-              config.autoRecover ? "bg-emerald-500" : "bg-white/10"
+              config.autoRecover ? "bg-emerald-500" : "bg-white/15"
             )}
           >
             <span

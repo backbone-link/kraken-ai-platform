@@ -96,15 +96,15 @@ const statusDotColor: Record<string, string> = {
 const tooltipStyle = {
   contentStyle: {
     background: "#1a1a1a",
-    border: "1px solid rgba(255,255,255,0.15)",
+    border: "1px solid rgba(255,255,255,0.22)",
     borderRadius: 8,
     fontSize: 12,
   },
-  labelStyle: { color: "#a3a3a3" },
+  labelStyle: { color: "#b0b0b0" },
 };
 
 const axisProps = {
-  tick: { fill: "#6b6b6b", fontSize: 11 },
+  tick: { fill: "#888888", fontSize: 11 },
   axisLine: false as const,
   tickLine: false as const,
 };
@@ -312,7 +312,7 @@ const AgentSelectorTable = ({
                   "cursor-pointer transition-colors border-l-2 border-t border-t-border-subtle",
                   selectedAgentId === agent.id
                     ? "bg-accent/[0.06] border-l-accent"
-                    : "border-l-transparent hover:bg-white/[0.02]"
+                    : "border-l-transparent hover:bg-white/[0.05]"
                 )}
               >
                 <td className="px-4 py-2.5">
@@ -449,7 +449,7 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={data.apiCalls}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.10)" />
             <XAxis dataKey="time" {...axisProps} />
             <YAxis {...axisProps} />
             <Tooltip {...tooltipStyle} />
@@ -470,7 +470,7 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data.duration}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.10)" />
             <XAxis dataKey="time" {...axisProps} />
             <YAxis {...axisProps} tickFormatter={(v: number) => formatDuration(v)} />
             <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatDuration(Number(v))} />
@@ -490,10 +490,10 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={data.tokens}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.10)" />
             <XAxis dataKey="time" {...axisProps} />
             <YAxis {...axisProps} tickFormatter={(v: number) => formatNumber(v)} />
-            <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatNumber(Number(v))} cursor={{ fill: "rgba(255,255,255,0.06)" }} />
+            <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatNumber(Number(v))} cursor={{ fill: "rgba(255,255,255,0.10)" }} />
             <Bar dataKey="value" name="Input" fill="#e8622c" radius={[3, 3, 0, 0]} />
             <Bar dataKey="value2" name="Output" fill="#6b6b6b" radius={[3, 3, 0, 0]} />
           </BarChart>
@@ -504,7 +504,7 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
         <p className="text-[13px] font-medium text-text-primary mb-4">Daily Cost</p>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={data.cost}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.10)" />
             <XAxis dataKey="time" {...axisProps} />
             <YAxis {...axisProps} tickFormatter={(v: number) => `$${v}`} />
             <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatCurrency(Number(v))} />
@@ -540,7 +540,7 @@ const RunRow = ({
           ? "bg-accent/[0.06] border-l-2 border-l-accent"
           : isKilled
             ? "border-l-2 border-l-red-500"
-            : "border-l-2 border-l-transparent hover:bg-white/[0.02]"
+            : "border-l-2 border-l-transparent hover:bg-white/[0.05]"
       )}
     >
       <div className="flex items-center gap-3 px-4 py-3">
@@ -613,7 +613,7 @@ const TraceStepRow = ({
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors text-left"
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.05] transition-colors text-left"
       >
         <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <span

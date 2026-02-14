@@ -110,8 +110,8 @@ const PythonCodeView = ({ code }: { code: string }) => {
 				<tbody>
 					{lines.map((line, i) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: stable list from code.split
-						<tr key={`line-${i}`} className="hover:bg-white/2">
-							<td className="text-right text-text-muted/70 select-none px-4 py-0 w-[1%] whitespace-nowrap align-top">
+						<tr key={`line-${i}`} className="hover:bg-white/5">
+							<td className="text-right text-text-muted select-none px-4 py-0 w-[1%] whitespace-nowrap align-top">
 								{i + 1}
 							</td>
 							<td className="text-text-secondary px-4 py-0 whitespace-pre">
@@ -140,7 +140,7 @@ const PythonLine = ({ line }: { line: string }) => {
 	parts.push(...tokens);
 
 	if (commentPart) {
-		parts.push({ text: commentPart, className: "text-text-muted/80 italic" });
+		parts.push({ text: commentPart, className: "text-text-muted italic" });
 	}
 
 	if (parts.length === 0) return <span>{line}</span>;
@@ -244,23 +244,23 @@ const tokenize = (code: string): { text: string; className: string }[] => {
 		const token = match[0];
 
 		if (token.startsWith('"""') || token.startsWith("'''")) {
-			result.push({ text: token, className: "text-emerald-400/85" });
+			result.push({ text: token, className: "text-emerald-400" });
 		} else if (
 			token.startsWith('"') ||
 			token.startsWith("'") ||
 			token.startsWith('f"')
 		) {
-			result.push({ text: token, className: "text-emerald-400/85" });
+			result.push({ text: token, className: "text-emerald-400" });
 		} else if (token.startsWith("@")) {
-			result.push({ text: token, className: "text-amber-400/90" });
+			result.push({ text: token, className: "text-amber-400" });
 		} else if (/^\d/.test(token)) {
-			result.push({ text: token, className: "text-orange-300/90" });
+			result.push({ text: token, className: "text-orange-300" });
 		} else if (KEYWORDS.has(token)) {
-			result.push({ text: token, className: "text-violet-400/90" });
+			result.push({ text: token, className: "text-violet-400" });
 		} else if (BUILTINS.has(token)) {
-			result.push({ text: token, className: "text-sky-400/85" });
+			result.push({ text: token, className: "text-sky-400" });
 		} else if (/^\w+$/.test(token)) {
-			result.push({ text: token, className: "text-text-primary/90" });
+			result.push({ text: token, className: "text-text-primary" });
 		} else if (/^\s+$/.test(token)) {
 			result.push({ text: token, className: "" });
 		} else {
@@ -584,7 +584,7 @@ const ComputeSelector = ({
 					<span className="text-[10px] font-mono text-text-muted uppercase tracking-wider">
 						Utilization
 					</span>
-					<div className="w-24 h-1.5 rounded-full bg-white/9 overflow-hidden">
+					<div className="w-24 h-1.5 rounded-full bg-white/14 overflow-hidden">
 						<div
 							className={cn(
 								"h-full rounded-full transition-all",

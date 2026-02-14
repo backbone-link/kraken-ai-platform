@@ -146,7 +146,7 @@ const AgentsPage = () => {
             {agentMarketplaces.map((marketplace) => (
                 <tr
                   key={marketplace.id}
-                  className="border-t border-border-subtle hover:bg-white/[0.02] transition-colors group"
+                  className="border-t border-border-subtle hover:bg-white/[0.05] transition-colors group"
                 >
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2">
@@ -157,8 +157,8 @@ const AgentsPage = () => {
                         className={cn(
                           "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded",
                           marketplace.source === "kraken"
-                            ? "text-accent/80 bg-accent/8"
-                            : "text-text-muted bg-white/[0.06]"
+                            ? "text-accent/80 bg-accent/12"
+                            : "text-text-muted bg-white/[0.09]"
                         )}
                       >
                         {sourceConfig[marketplace.source].label}
@@ -168,7 +168,7 @@ const AgentsPage = () => {
                       href={marketplace.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] font-mono text-text-muted/70 hover:text-text-secondary mt-0.5 truncate max-w-[240px] transition-colors"
+                      className="inline-flex items-center gap-1 text-[10px] font-mono text-text-muted hover:text-text-secondary mt-0.5 truncate max-w-[240px] transition-colors"
                       title={marketplace.url}
                     >
                       <Github size={10} className="shrink-0" />
@@ -224,7 +224,7 @@ const AgentsPage = () => {
                 onFocus={() => setMarketplaceUrlFocused(true)}
                 onBlur={() => setMarketplaceUrlFocused(false)}
                 placeholder="github.com/org/kraken-agents"
-                className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/60 focus:outline-none w-full font-mono"
+                className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/80 focus:outline-none w-full font-mono"
               />
             </div>
             <button
@@ -232,7 +232,7 @@ const AgentsPage = () => {
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors shrink-0",
                 marketplaceUrl.length > 0
                   ? "bg-accent hover:bg-accent-hover text-white"
-                  : "bg-white/[0.04] text-text-muted"
+                  : "bg-white/[0.07] text-text-muted"
               )}
             >
               Connect
