@@ -25,10 +25,10 @@ import {
 } from "lucide-react";
 import {
   integrations,
-  pluginStores,
+  pluginMarketplaces,
   type Integration,
   type IntegrationSource,
-  type PluginStore,
+  type PluginMarketplace,
 } from "@/data/mock";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -219,9 +219,9 @@ const RenderedMarkdown = ({ content }: { content: string }) => {
   return <div>{elements}</div>;
 };
 
-/* ─── Plugin Store Row ─── */
-const StoreRow = ({ store }: { store: PluginStore }) => {
-  const src = sourceConfig[store.source];
+/* ─── Plugin Marketplace Row ─── */
+const MarketplaceRow = ({ marketplace }: { marketplace: PluginMarketplace }) => {
+  const src = sourceConfig[marketplace.source];
   const SrcIcon = src.icon;
 
   return (
@@ -229,9 +229,9 @@ const StoreRow = ({ store }: { store: PluginStore }) => {
       <div
         className={cn(
           "w-7 h-7 rounded-md flex items-center justify-center shrink-0",
-          store.source === "kraken"
+          marketplace.source === "kraken"
             ? "bg-accent/10"
-            : store.source === "custom"
+            : marketplace.source === "custom"
               ? "bg-white/[0.06]"
               : "bg-white/[0.06]"
         )}
@@ -239,7 +239,7 @@ const StoreRow = ({ store }: { store: PluginStore }) => {
         <SrcIcon
           size={13}
           className={cn(
-            store.source === "kraken"
+            marketplace.source === "kraken"
               ? "text-accent"
               : "text-text-secondary"
           )}
@@ -248,14 +248,14 @@ const StoreRow = ({ store }: { store: PluginStore }) => {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium text-text-primary truncate">
-            {store.name}
+            {marketplace.name}
           </span>
           <span
             className={cn(
               "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded",
-              store.source === "kraken"
+              marketplace.source === "kraken"
                 ? "text-accent/80 bg-accent/8"
-                : store.source === "custom"
+                : marketplace.source === "custom"
                   ? "text-text-muted bg-white/[0.04]"
                   : "text-text-muted bg-white/[0.04]"
             )}
@@ -264,15 +264,15 @@ const StoreRow = ({ store }: { store: PluginStore }) => {
           </span>
         </div>
         <span className="text-[10px] font-mono text-text-muted">
-          {store.installedCount}/{store.pluginCount} installed
+          {marketplace.installedCount}/{marketplace.pluginCount} installed
         </span>
       </div>
       <a
-        href={store.url}
+        href={marketplace.url}
         target="_blank"
         rel="noopener noreferrer"
         className="text-text-muted hover:text-text-secondary opacity-0 group-hover:opacity-100 transition-all p-1"
-        title={store.url}
+        title={marketplace.url}
       >
         <ExternalLink size={12} />
       </a>
@@ -654,8 +654,8 @@ const IntegrationsPage = () => {
   const [selected, setSelected] = useState<Integration | null>(
     integrations.find((i) => i.subscribed && i.enabled) ?? null
   );
-  const [storeUrl, setStoreUrl] = useState("");
-  const [storeUrlFocused, setStoreUrlFocused] = useState(false);
+  const [marketplaceUrl, setMarketplaceUrl] = useState("");
+  const [marketplaceUrlFocused, setMarketplaceUrlFocused] = useState(false);
 
   const filtered = integrations.filter((i) => i.category === activeTab);
   const subscribed = filtered.filter((i) => i.subscribed);
@@ -680,33 +680,33 @@ const IntegrationsPage = () => {
         subtitle="Connect data sources, tools, actions, and skills to your agents"
       />
 
-      {/* Plugin Stores */}
+      {/* Plugin Marketplaces */}
       <div className="bg-bg-secondary border border-border-subtle rounded-xl mb-6 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border-subtle">
           <div className="flex items-center gap-2">
             <Store size={13} className="text-text-muted" />
             <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
-              Plugin Stores
+              Plugin Marketplaces
             </span>
             <span className="text-[10px] font-mono text-text-muted/60 ml-1">
-              {pluginStores.length} connected
+              {pluginMarketplaces.length} connected
             </span>
           </div>
           <div className="flex items-center gap-2">
             <Package size={11} className="text-text-muted" />
             <span className="text-[10px] font-mono text-text-muted">
-              {pluginStores.reduce((acc, s) => acc + s.installedCount, 0)} plugins installed
+              {pluginMarketplaces.reduce((acc, s) => acc + s.installedCount, 0)} plugins installed
             </span>
           </div>
         </div>
 
         <div className="grid grid-cols-4 gap-px bg-border-subtle/50">
-          {pluginStores.map((store) => (
-            <StoreRow key={store.id} store={store} />
+          {pluginMarketplaces.map((marketplace) => (
+            <MarketplaceRow key={marketplace.id} marketplace={marketplace} />
           ))}
         </div>
 
-        {/* Add store from GitHub */}
+        {/* Add marketplace from GitHub */}
         <div className="px-4 py-3 border-t border-border-subtle">
           <div
             className={cn(
@@ -715,21 +715,21 @@ const IntegrationsPage = () => {
           >
             <GitBranch size={13} className="text-text-muted shrink-0" />
             <span className="text-[11px] text-text-muted shrink-0">
-              Add store
+              Add marketplace
             </span>
             <div
               className={cn(
                 "flex items-center gap-2 flex-1 bg-bg-primary border rounded-md px-2.5 py-1.5 transition-colors",
-                storeUrlFocused ? "border-accent/40" : "border-border-subtle"
+                marketplaceUrlFocused ? "border-accent/40" : "border-border-subtle"
               )}
             >
               <Link size={10} className="text-text-muted shrink-0" />
               <input
                 type="text"
-                value={storeUrl}
-                onChange={(e) => setStoreUrl(e.target.value)}
-                onFocus={() => setStoreUrlFocused(true)}
-                onBlur={() => setStoreUrlFocused(false)}
+                value={marketplaceUrl}
+                onChange={(e) => setMarketplaceUrl(e.target.value)}
+                onFocus={() => setMarketplaceUrlFocused(true)}
+                onBlur={() => setMarketplaceUrlFocused(false)}
                 placeholder="github.com/org/kraken-plugins"
                 className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/60 focus:outline-none w-full font-mono"
               />
@@ -737,7 +737,7 @@ const IntegrationsPage = () => {
             <button
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors shrink-0",
-                storeUrl.length > 0
+                marketplaceUrl.length > 0
                   ? "bg-accent hover:bg-accent-hover text-white"
                   : "bg-white/[0.04] text-text-muted"
               )}
@@ -747,7 +747,7 @@ const IntegrationsPage = () => {
             </button>
           </div>
           <p className="text-[10px] text-text-muted/70 mt-2 ml-[26px]">
-            Add a GitHub repository as a plugin store. Repos must follow the Kraken plugin spec.
+            Add a GitHub repository as a plugin marketplace. Repos must follow the Kraken plugin spec.
           </p>
         </div>
       </div>

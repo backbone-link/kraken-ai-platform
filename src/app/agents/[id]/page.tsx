@@ -21,8 +21,10 @@ import {
   Position,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { agents, agentFlows, detailedAgentRuns } from "@/data/mock";
+import { agents, agentFlows, detailedAgentRuns, agentConfigs } from "@/data/mock";
 import type { TraceStep, IntegrationSource } from "@/data/mock";
+import type { AgentConfig } from "@/data/mock";
+import { AgentConfigPanel } from "@/components/agent-config-panel";
 import {
   ArrowLeft,
   Play,
@@ -190,20 +192,26 @@ const flowNodeConfigs: Record<string, Record<string, NodeConfig>> = {
     a3: { title: "Log: No Changes" },
   },
   "agt-003": {
-    t1: { title: "Daily Schedule" },
-    s1: { title: "Data Access Auth" },
-    m1: {
-      title: "Forecast Demand",
-      model: "gpt-5.2",
+    t1: { title: "Daily / On-Demand" },
+    s1: { title: "Input Auth & Scoping" },
+    orch: {
+      title: "Opus 4.6 Orchestrator",
+      model: "claude-opus-4.6",
       systemPrompt:
-        "You are a demand forecasting engine. Analyze historical sales data, seasonal patterns, market signals, and external factors to generate 7-day and 30-day demand forecasts by product category. Use statistical methods combined with qualitative market intelligence. Output structured forecasts with confidence intervals.",
-      tools: ["Data Analysis", "Code Execution", "Database Query"],
+        "You are a demand forecasting orchestrator modeled on Claude Code's agentic architecture. You have four tools:\n• manage_tasks — create, assign, and track tasks in a shared task list\n• spawn_agents — launch 0..N parallel sub-agents, each with their own context\n• query_data — query databases and APIs directly\n• run_analysis — execute analysis code on compute clusters\n\nOn each iteration of your loop:\n1. Assess current state: what data exists, what analysis is complete, what confidence level?\n2. Use manage_tasks to plan work and track progress\n3. Use spawn_agents to delegate parallel work to sub-agents (they report back automatically)\n4. Use query_data and run_analysis for direct tool work\n5. When sub-agents report back, evaluate quality, resolve conflicts, decide: iterate or exit\n\nYou dynamically choose actions each iteration. You are NOT following a fixed pipeline. Typical runs use 2–4 loop iterations, spawning 2–5 total sub-agents across iterations.",
+      tools: ["Data Analysis", "Database Query", "Code Execution"],
       skills: ["Report Builder", "Compliance Auditor"],
     },
-    t2: { title: "Fetch Historical Sales" },
-    t3: { title: "Fetch Market Signals" },
-    s2: { title: "Output Audit" },
-    a1: { title: "Write to Snowflake" },
+    "tool-tasks": { title: "manage_tasks" },
+    "tool-spawn": { title: "spawn_agents" },
+    "tool-query": { title: "query_data" },
+    "tool-code": { title: "run_analysis" },
+    agents: { title: "Sub-Agents (0..N)" },
+    s2: { title: "Output Guardrails" },
+    gate: { title: "Confidence ≥ 92%?" },
+    "out-write": { title: "Write to Snowflake" },
+    "out-review": { title: "Analyst Review" },
+    "out-notify": { title: "Notify Slack" },
   },
   "agt-004": {
     t1: { title: "Zendesk Webhook" },
@@ -438,6 +446,12 @@ const ModelNode = ({ data }: NodeProps) => {
         id="tool-b"
         className="!w-2 !h-2 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/60"
       />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="loop-in"
+        className="!w-2.5 !h-2.5 !bg-[#e8622c]/20 !border-2 !border-[#e8622c]/60"
+      />
       <div
         className={cn(
           "bg-[#a78bfa]/[0.06] border-2 border-[#a78bfa]/30 rounded-xl px-5 py-3.5 min-w-[220px] shadow-[0_0_24px_rgba(167,139,250,0.10)] transition-shadow",
@@ -500,6 +514,11 @@ const ToolNode = ({ data }: NodeProps) => {
         type="target"
         position={Position.Top}
         id="top"
+        className="!w-1.5 !h-1.5 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/50"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
         className="!w-1.5 !h-1.5 !bg-[#2dd4bf]/20 !border !border-[#2dd4bf]/50"
       />
       <div
@@ -893,13 +912,17 @@ const AgentDetailPage = () => {
   const agent = agents.find((a) => a.id === agentId) ?? agents[0];
   const flow = agentFlows[agent.id];
   const agentRuns = detailedAgentRuns.filter((r) => r.agentId === agent.id);
+  const [editableConfig, setEditableConfig] = useState<AgentConfig | null>(
+    agentConfigs[agent.id] ?? null
+  );
   const latestRun = agentRuns[0];
 
   const [activeTab, setActiveTab] = useState<"builder" | "runs">("builder");
 
   const isRunning = agent.status === "running";
-  const simulationRun = agentRuns.find((r) => r.id === "drun-001");
+  const simulationRun = agentRuns[0];
   const simulationSteps = simulationRun?.traceSteps ?? [];
+  const liveRunId = `live-${agent.id}`;
   const simulationEdges = useMemo(
     () => flow?.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })) ?? [],
     [flow]
@@ -907,14 +930,14 @@ const AgentDetailPage = () => {
 
   const getStepDuration = useCallback(
     (step: { nodeType: string }) =>
-      step.nodeType === "model" ? 10000 : 1800,
+      step.nodeType === "model" ? 10000 : step.nodeType === "agent" ? 6000 : 1800,
     []
   );
 
   const { progress } = useExecutionSimulation({
     steps: simulationSteps,
     edges: simulationEdges,
-    runId: "drun-015",
+    runId: liveRunId,
     autoStart: isRunning,
     stepIntervalMs: 1800,
     getStepDuration,
@@ -934,7 +957,7 @@ const AgentDetailPage = () => {
 
       const tooltipData = execState === "executing" && currentStep
         ? {
-            runId: "drun-015",
+            runId: liveRunId,
             stepName: currentStep.nodeLabel,
             triggeredBy: simulationRun?.triggeredBy ?? "Cron (hourly)",
             model: currentStep.modelInfo?.model,
@@ -951,7 +974,7 @@ const AgentDetailPage = () => {
           label: n.label,
           nodeType: n.type,
           executionState: execState,
-          runId: shouldShowExecution ? "drun-015" : undefined,
+          runId: shouldShowExecution ? liveRunId : undefined,
           stepId: stepForNode?.id,
           tooltipData,
         },
@@ -965,6 +988,9 @@ const AgentDetailPage = () => {
     return flow.edges.map((e) => {
       const isToolCall = e.label === "tool call";
       const isKill = e.label?.includes("KILL") ?? false;
+      const isLoop = e.label === "report";
+      const isSpawn = e.label?.startsWith("spawn") ?? false;
+      const isDispatch = e.label?.startsWith("dispatch") ?? false;
 
       if (shouldShowExecution) {
         const isActive = progress.activeEdgeId === e.id;
@@ -990,15 +1016,15 @@ const AgentDetailPage = () => {
         sourceHandle: e.sourceHandle,
         targetHandle: e.targetHandle,
         label: e.label,
-        type: "smoothstep",
+        type: isLoop ? "default" : "smoothstep",
         animated: isToolCall,
         style: {
-          stroke: isKill ? "#ef4444" : isToolCall ? "rgba(45,212,191,0.4)" : "rgba(255,255,255,0.20)",
-          strokeWidth: isKill ? 2 : 1.5,
-          strokeDasharray: isToolCall ? "6 3" : isKill ? "6 3" : undefined,
+          stroke: isKill ? "#ef4444" : isLoop ? "rgba(232,98,44,0.5)" : isSpawn || isDispatch ? "rgba(232,98,44,0.4)" : isToolCall ? "rgba(45,212,191,0.4)" : "rgba(255,255,255,0.20)",
+          strokeWidth: isKill ? 2 : isLoop ? 2 : 1.5,
+          strokeDasharray: isToolCall ? "6 3" : isKill ? "6 3" : isLoop ? "8 4" : isSpawn || isDispatch ? "4 2" : undefined,
         },
         labelStyle: {
-          fill: isKill ? "#ef4444" : isToolCall ? "#2dd4bf" : "#a3a3a3",
+          fill: isKill ? "#ef4444" : isLoop || isSpawn || isDispatch ? "#e8622c" : isToolCall ? "#2dd4bf" : "#a3a3a3",
           fontSize: 10,
           fontFamily: "var(--font-mono), monospace",
           fontWeight: isKill ? 600 : 400,
@@ -1262,7 +1288,7 @@ const AgentDetailPage = () => {
                 <div className="flex items-center gap-2.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-gentle-pulse" />
                   <span className="text-[11px] font-medium text-emerald-400">Live</span>
-                  <span className="text-[11px] font-mono text-text-muted">drun-015</span>
+                  <span className="text-[11px] font-mono text-text-muted">{liveRunId}</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="text-[11px] font-mono text-text-secondary">
@@ -1347,68 +1373,74 @@ const AgentDetailPage = () => {
               );
             })()}
 
-          {/* Agent Properties */}
-          <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
-            <h3 className="text-[13px] font-medium text-text-primary mb-4">
-              Agent Properties
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
-                  Trigger
-                </div>
-                <div className="text-[13px] text-text-primary">
-                  {agent.triggers.join(", ")}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
-                  Success Rate
-                </div>
-                <div className="text-[13px] font-mono text-text-primary">
-                  {agent.successRate}%
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
-                  Total Runs
-                </div>
-                <div className="text-[13px] font-mono text-text-primary">
-                  {agent.totalRuns.toLocaleString()}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
-                  Avg Duration
-                </div>
-                <div className="text-[13px] font-mono text-text-primary">
-                  {formatDuration(agent.avgDuration)}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
-                  Permissions
-                </div>
-                <div className="text-[13px] text-text-primary">
-                  Workflow-defined
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
-                  Concurrency
-                </div>
-                <div className="text-[13px] font-mono text-text-primary">
-                  1 (sequential)
-                </div>
-              </div>
+          {/* Agent Configuration */}
+          {editableConfig ? (
+            <AgentConfigPanel
+              config={editableConfig}
+              onChange={setEditableConfig}
+            />
+          ) : (
+            <div className="bg-bg-secondary border border-border-subtle rounded-xl p-6 text-center">
+              <p className="text-[13px] text-text-muted">No configuration found for this agent.</p>
             </div>
-          </div>
+          )}
         </div>
       )}
 
       {/* Runs Tab */}
       {activeTab === "runs" && (
         <div className="space-y-4">
+          {/* Run Statistics */}
+          <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-border-subtle">
+              <div className="bg-bg-secondary px-5 py-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">Total Runs</div>
+                <div className="text-[18px] font-mono font-medium text-text-primary">{agentRuns.length}</div>
+              </div>
+              <div className="bg-bg-secondary px-5 py-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">Success Rate</div>
+                <div className="text-[18px] font-mono font-medium text-emerald-400">
+                  {agentRuns.length > 0
+                    ? `${((agentRuns.filter((r) => r.status === "success").length / agentRuns.length) * 100).toFixed(1)}%`
+                    : "—"}
+                </div>
+              </div>
+              <div className="bg-bg-secondary px-5 py-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">Avg Duration</div>
+                <div className="text-[18px] font-mono font-medium text-text-primary">
+                  {agentRuns.length > 0
+                    ? formatDuration(Math.round(agentRuns.reduce((sum, r) => sum + r.duration, 0) / agentRuns.length))
+                    : "—"}
+                </div>
+              </div>
+              <div className="bg-bg-secondary px-5 py-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">Avg Tokens</div>
+                <div className="text-[18px] font-mono font-medium text-text-primary">
+                  {agentRuns.length > 0
+                    ? `${(agentRuns.reduce((sum, r) => sum + r.tokensUsed, 0) / agentRuns.length / 1_000).toFixed(1)}k`
+                    : "—"}
+                </div>
+              </div>
+              <div className="bg-bg-secondary px-5 py-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">Total Cost</div>
+                <div className="text-[18px] font-mono font-medium text-text-primary">
+                  ${agentRuns.reduce((sum, r) => sum + r.cost, 0).toFixed(2)}
+                </div>
+              </div>
+              <div className="bg-bg-secondary px-5 py-4">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">Errors</div>
+                <div className={cn(
+                  "text-[18px] font-mono font-medium",
+                  agentRuns.filter((r) => r.status === "error" || r.status === "killed").length > 0
+                    ? "text-red-400"
+                    : "text-text-muted"
+                )}>
+                  {agentRuns.filter((r) => r.status === "error" || r.status === "killed").length}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {latestRun ? (
             <>
               <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">

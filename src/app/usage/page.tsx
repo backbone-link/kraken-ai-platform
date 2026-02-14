@@ -5,6 +5,7 @@ import {
   modelUsage,
   computeUsage,
   agentObservabilityMetrics,
+  billingPlan,
 } from "@/data/mock";
 import {
   formatNumber,
@@ -22,9 +23,7 @@ const modelColors = [
   "bg-[#72b58e]",
 ];
 
-const totalAllocated = modelUsage.reduce((s, m) => s + m.allocated, 0);
 const totalUsed = modelUsage.reduce((s, m) => s + m.used, 0);
-const platformPercent = Math.min((totalUsed / totalAllocated) * 100, 100);
 
 const totalCost = agentObservabilityMetrics.reduce((s, a) => s + a.cost, 0);
 const totalTokensIn = agentObservabilityMetrics.reduce((s, a) => s + a.tokensIn, 0);
@@ -32,9 +31,9 @@ const totalTokensOut = agentObservabilityMetrics.reduce((s, a) => s + a.tokensOu
 const totalTokens = totalTokensIn + totalTokensOut;
 
 const barColor = (percent: number) => {
-  if (percent >= 90) return "bg-error";
-  if (percent >= 75) return "bg-warning";
-  return "bg-accent";
+  if (percent >= 90) return "bg-error/70";
+  if (percent >= 75) return "bg-warning/70";
+  return "bg-accent/50";
 };
 
 const UsagePage = () => (
@@ -44,8 +43,98 @@ const UsagePage = () => (
       subtitle="Platform resource consumption and cost tracking"
     />
 
+    {/* API Usage */}
+    {(() => {
+      const usagePercent = Math.min((totalCost / billingPlan.monthlyAllowance) * 100, 100);
+      const remaining = Math.max(billingPlan.monthlyAllowance - totalCost, 0);
+      const retailValue = totalCost * billingPlan.apiMultiplier;
+      const coveredAmount = Math.min(totalCost, billingPlan.monthlyAllowance);
+      const overage = Math.max(totalCost - billingPlan.monthlyAllowance, 0);
+
+      return (
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5 mb-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider mb-3">
+                API Usage This Month
+              </p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[32px] font-mono font-light text-text-primary metric-value leading-none">
+                  {formatCurrency(totalCost)}
+                </span>
+                <span className="text-[14px] font-mono text-text-muted">
+                  of {formatCurrency(billingPlan.monthlyAllowance)} included
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono font-medium text-accent bg-accent/10 px-2 py-1 rounded">
+                {billingPlan.apiMultiplier}× multiplier
+              </span>
+              <span className="text-[11px] font-mono text-text-muted bg-white/[0.04] px-2 py-1 rounded">
+                {billingPlan.name}
+              </span>
+            </div>
+          </div>
+
+          <div className="h-2.5 bg-bg-tertiary rounded-full overflow-hidden mb-2">
+            <div
+              className={`h-full rounded-full transition-all ${usagePercent >= 90 ? "bg-error/70" : usagePercent >= 75 ? "bg-warning/70" : "bg-accent/50"}`}
+              style={{ width: `${usagePercent}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[11px] font-mono text-text-muted">
+              {usagePercent.toFixed(0)}% of included API usage
+            </span>
+            <span className="text-[11px] font-mono text-text-muted">
+              {formatCurrency(remaining)} remaining
+            </span>
+          </div>
+
+          <div className="flex items-center gap-6 pt-3 border-t border-border-subtle">
+            <div>
+              <p className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-0.5">
+                Included
+              </p>
+              <p className="text-[14px] font-mono text-success">
+                {formatCurrency(coveredAmount)}
+              </p>
+            </div>
+            {overage > 0 && (
+              <div>
+                <p className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-0.5">
+                  Overage
+                </p>
+                <p className="text-[14px] font-mono text-error">
+                  {formatCurrency(overage)}
+                </p>
+              </div>
+            )}
+            <div>
+              <p className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-0.5">
+                At Provider Rates
+              </p>
+              <p className="text-[14px] font-mono text-text-secondary">
+                {formatCurrency(retailValue)}
+              </p>
+            </div>
+            <div className="ml-auto text-right">
+              <p className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-0.5">
+                Billing Period
+              </p>
+              <p className="text-[13px] font-mono text-text-secondary">
+                {billingPlan.periodLabel}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+
     {/* Summary Cards */}
-    <div className="grid grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-3 gap-4 mb-6">
       <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
         <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider mb-3">
           Active Agents
@@ -83,69 +172,68 @@ const UsagePage = () => (
           </span>
         </div>
       </div>
-      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
-        <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider mb-3">
-          Cost This Month
-        </p>
-        <p className="text-[32px] font-mono font-light text-text-primary metric-value leading-none">
-          {formatCurrency(totalCost)}
-        </p>
-      </div>
     </div>
 
-    {/* Model Token Allocation */}
+    {/* Usage by Model */}
     <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5 mb-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider">
-          Model Token Allocation
+          Usage by Model
         </p>
         <span className="text-[12px] font-mono text-text-secondary">
-          {formatTokens(totalUsed)}{" "}
-          <span className="text-text-muted">
-            / {formatTokens(totalAllocated)}
-          </span>
+          {formatTokens(totalUsed)} tokens
         </span>
       </div>
 
-      <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden flex">
-        {modelUsage.map((m, i) => {
-          const share = (m.used / totalAllocated) * 100;
-          return (
-            <div
-              key={m.model}
-              className={`h-full ${modelColors[i % modelColors.length]} ${i === 0 ? "rounded-l-full" : ""}`}
-              style={{ width: `${share}%` }}
-            />
-          );
-        })}
-      </div>
-      <div className="flex items-center justify-between mt-1.5">
-        <span className="text-[11px] font-mono text-text-muted">
-          {platformPercent.toFixed(0)}% of monthly allowance
-        </span>
-        <span className="text-[11px] font-mono text-text-muted">
-          {formatTokens(totalAllocated - totalUsed)} remaining
-        </span>
-      </div>
+      {(() => {
+        const sorted = [...modelUsage].sort((a, b) => b.used - a.used);
+        const exact = sorted.map((m) => (m.used / totalUsed) * 100);
+        const floored = exact.map(Math.floor);
+        let remainder = 100 - floored.reduce((s, v) => s + v, 0);
+        const remainders = exact.map((v, i) => ({ i, r: v - floored[i] }));
+        remainders.sort((a, b) => b.r - a.r);
+        for (const { i } of remainders) {
+          if (remainder <= 0) break;
+          floored[i]++;
+          remainder--;
+        }
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
-        {modelUsage.map((m, i) => {
-          const shareOfUsed = ((m.used / totalUsed) * 100).toFixed(0);
-          return (
-            <div key={m.model} className="flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full ${modelColors[i % modelColors.length]}`}
-              />
-              <span className="text-[11px] text-text-secondary">
-                {m.model}
-              </span>
-              <span className="text-[11px] font-mono text-text-muted">
-                {shareOfUsed}%
-              </span>
-            </div>
-          );
-        })}
-      </div>
+        return (
+          <div className="space-y-3">
+            {sorted.map((m, i) => (
+              <div key={m.model}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${modelColors[i % modelColors.length]}`}
+                    />
+                    <span className="text-[13px] text-text-primary">
+                      {m.model}
+                    </span>
+                    <span className="text-[10px] font-mono text-text-muted">
+                      {m.provider}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[12px] font-mono text-text-muted">
+                      {formatTokens(m.used)}
+                    </span>
+                    <span className="text-[12px] font-mono text-text-secondary w-10 text-right">
+                      {floored[i]}%
+                    </span>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${modelColors[i % modelColors.length]}`}
+                    style={{ width: `${exact[i]}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
 
     {/* Pipeline Compute */}
@@ -233,7 +321,7 @@ const UsagePage = () => (
                       <div className="flex items-center gap-3">
                         <div className="h-1 bg-bg-tertiary rounded-full overflow-hidden flex-1">
                           <div
-                            className="h-full rounded-full bg-accent"
+                            className="h-full rounded-full bg-accent/50"
                             style={{ width: `${pipePercent}%` }}
                           />
                         </div>
@@ -283,7 +371,7 @@ const UsagePage = () => (
               </div>
               <div className="h-1 bg-bg-tertiary rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-accent"
+                  className="h-full rounded-full bg-accent/50"
                   style={{ width: `${costPercent}%` }}
                 />
               </div>

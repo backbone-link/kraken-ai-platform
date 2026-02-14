@@ -20,6 +20,33 @@ export interface Agent {
   securityFlags: number;
 }
 
+export interface AgentConfig {
+  schedule?: {
+    type: "cron" | "interval" | "none";
+    expression?: string;
+    timezone?: string;
+    description: string;
+  };
+  timeout: number;
+  retries: {
+    maxAttempts: number;
+    backoffMs: number;
+  };
+  concurrency: number;
+  notifications: {
+    channel: string;
+    onSuccess: boolean;
+    onFailure: boolean;
+    onTimeout: boolean;
+  };
+  resourceLimits: {
+    maxTokensPerRun: number;
+    maxCostPerRun: number;
+  };
+  environment: "production" | "staging" | "development";
+  autoRecover: boolean;
+}
+
 export interface AgentRun {
   id: string;
   agentId: string;
@@ -67,11 +94,11 @@ export interface ApiCallsPoint {
   serverError: number;
 }
 
-// ─── Plugin Store Types ───
+// ─── Plugin Marketplace Types ───
 
 export type IntegrationSource = "kraken" | "community" | "custom";
 
-export interface PluginStore {
+export interface PluginMarketplace {
   id: string;
   name: string;
   source: IntegrationSource;
@@ -82,7 +109,7 @@ export interface PluginStore {
   connected: boolean;
 }
 
-export interface AgentStore {
+export interface AgentMarketplace {
   id: string;
   name: string;
   source: IntegrationSource;
@@ -115,7 +142,7 @@ export interface Integration {
   enabled: boolean;
   source: IntegrationSource;
   sourceDetail?: string;
-  storeId: string;
+  marketplaceId: string;
   mcpEndpoint?: string;
   version?: string;
   config?: IntegrationConfigField[];
@@ -253,15 +280,15 @@ export const agents: Agent[] = [
   {
     id: "agt-003",
     name: "Demand Forecasting",
-    description: "Generates time-series demand forecasts with seasonality analysis and scenario planning for inventory decisions.",
-    status: "idle",
-    lastRun: "2026-02-13T12:00:00Z",
-    nextRun: "2026-02-14T06:00:00Z",
+    description: "Agentic demand forecasting — a single Opus 4.6 orchestrator with four tools (manage_tasks, spawn_agents, query_data, run_analysis) loops dynamically, spawning 0..N parallel sub-agents per iteration until confidence thresholds are met. Mirrors Claude Code's team orchestration pattern.",
+    status: "running",
+    lastRun: "2026-02-14T06:00:00Z",
+    nextRun: "2026-02-15T06:00:00Z",
     successRate: 97.1,
-    totalRuns: 1,
+    totalRuns: 14,
     avgDuration: 3_840_000,
     triggers: ["scheduled"],
-    version: "1.3.0",
+    version: "2.0.0",
     source: "kraken",
     securityFlags: 0,
   },
@@ -297,9 +324,62 @@ export const agents: Agent[] = [
   },
 ];
 
-export const agentStores: AgentStore[] = [
+export const agentConfigs: Record<string, AgentConfig> = {
+  "agt-001": {
+    schedule: { type: "cron", expression: "0 * * * *", timezone: "UTC", description: "Every hour" },
+    timeout: 30_000,
+    retries: { maxAttempts: 3, backoffMs: 5_000 },
+    concurrency: 1,
+    notifications: { channel: "#market-alerts", onSuccess: false, onFailure: true, onTimeout: true },
+    resourceLimits: { maxTokensPerRun: 15_000, maxCostPerRun: 0.50 },
+    environment: "production",
+    autoRecover: true,
+  },
+  "agt-002": {
+    schedule: { type: "interval", expression: "*/30 * * * *", timezone: "UTC", description: "Every 30 minutes" },
+    timeout: 20_000,
+    retries: { maxAttempts: 2, backoffMs: 3_000 },
+    concurrency: 1,
+    notifications: { channel: "#inventory-ops", onSuccess: false, onFailure: true, onTimeout: true },
+    resourceLimits: { maxTokensPerRun: 10_000, maxCostPerRun: 0.30 },
+    environment: "production",
+    autoRecover: true,
+  },
+  "agt-003": {
+    schedule: { type: "cron", expression: "0 6 * * *", timezone: "America/New_York", description: "Daily at 6:00 AM ET" },
+    timeout: 600_000,
+    retries: { maxAttempts: 1, backoffMs: 30_000 },
+    concurrency: 1,
+    notifications: { channel: "#demand-planning", onSuccess: true, onFailure: true, onTimeout: true },
+    resourceLimits: { maxTokensPerRun: 500_000, maxCostPerRun: 15.00 },
+    environment: "production",
+    autoRecover: false,
+  },
+  "agt-004": {
+    schedule: { type: "none", description: "Webhook-triggered" },
+    timeout: 15_000,
+    retries: { maxAttempts: 2, backoffMs: 2_000 },
+    concurrency: 5,
+    notifications: { channel: "#support-escalation", onSuccess: false, onFailure: true, onTimeout: true },
+    resourceLimits: { maxTokensPerRun: 8_000, maxCostPerRun: 0.20 },
+    environment: "production",
+    autoRecover: true,
+  },
+  "agt-005": {
+    schedule: { type: "cron", expression: "0 9,17 * * 1-5", timezone: "America/New_York", description: "Weekdays at 9 AM & 5 PM ET" },
+    timeout: 60_000,
+    retries: { maxAttempts: 2, backoffMs: 10_000 },
+    concurrency: 1,
+    notifications: { channel: "#pricing-ops", onSuccess: true, onFailure: true, onTimeout: true },
+    resourceLimits: { maxTokensPerRun: 20_000, maxCostPerRun: 1.00 },
+    environment: "staging",
+    autoRecover: false,
+  },
+};
+
+export const agentMarketplaces: AgentMarketplace[] = [
   {
-    id: "astore-logistics",
+    id: "amarketplace-logistics",
     name: "logistics",
     source: "kraken",
     url: "https://agents.kraken-ai.com/logistics",
@@ -310,7 +390,7 @@ export const agentStores: AgentStore[] = [
     version: "2.4.0",
   },
   {
-    id: "astore-commerce-ai",
+    id: "amarketplace-commerce-ai",
     name: "commerce-ai",
     source: "community",
     url: "https://github.com/commerce-ai/kraken-agents",
@@ -322,7 +402,7 @@ export const agentStores: AgentStore[] = [
     updateAvailable: "1.3.0",
   },
   {
-    id: "astore-internal",
+    id: "amarketplace-internal",
     name: "acme-internal",
     source: "custom",
     url: "https://github.com/acme-electronics/kraken-agents",
@@ -341,7 +421,7 @@ export const recentRuns: AgentRun[] = [
   { id: "run-004", agentId: "agt-004", agentName: "Customer Support Triage", status: "success", startedAt: "2026-02-13T14:12:00Z", duration: 920, tokensUsed: 1950, cost: 0.03, trigger: "webhook" },
   { id: "run-008", agentId: "agt-002", agentName: "Inventory Intelligence", status: "success", startedAt: "2026-02-13T13:50:00Z", duration: 1680, tokensUsed: 4600, cost: 0.11, trigger: "scheduled" },
   { id: "run-005", agentId: "agt-001", agentName: "Market Intelligence", status: "error", startedAt: "2026-02-13T13:15:00Z", duration: 4500, tokensUsed: 3100, cost: 0.09, trigger: "scheduled" },
-  { id: "run-006", agentId: "agt-003", agentName: "Demand Forecasting", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 3_900_000, tokensUsed: 384_000, cost: 12.48, trigger: "scheduled" },
+  { id: "run-006", agentId: "agt-003", agentName: "Demand Forecasting", status: "success", startedAt: "2026-02-14T06:00:00Z", duration: 3_900_000, tokensUsed: 1_284_000, cost: 48.72, trigger: "scheduled" },
   { id: "run-007", agentId: "agt-005", agentName: "Price Optimization", status: "success", startedAt: "2026-02-13T10:30:00Z", duration: 3100, tokensUsed: 7800, cost: 0.22, trigger: "manual" },
 ];
 
@@ -398,24 +478,54 @@ export const agentFlows: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] }
       { id: "e9", source: "a1", target: "a2" },
     ],
   },
-  // ── Demand Forecasting ──
+  // ── Demand Forecasting (Agentic Loop — Claude Code Pattern) ──
   "agt-003": {
     nodes: [
-      { id: "t1", type: "trigger", label: "Daily Schedule", x: 50, y: 250 },
-      { id: "s1", type: "security", label: "Data Access Auth", x: 300, y: 250 },
-      { id: "m1", type: "model", label: "GPT-5.2: Forecast Model", x: 620, y: 250 },
-      { id: "t2", type: "tool", label: "Fetch Historical Sales", x: 620, y: 70 },
-      { id: "t3", type: "tool", label: "Fetch Market Signals", x: 620, y: 430 },
-      { id: "s2", type: "security", label: "Output Audit", x: 940, y: 250 },
-      { id: "a1", type: "action", label: "Write to Snowflake", x: 1230, y: 250 },
+      // Deterministic entry
+      { id: "t1", type: "trigger", label: "Scheduled / On-Demand", x: 50, y: 350 },
+      { id: "s1", type: "security", label: "Input Auth & Scoping", x: 300, y: 350 },
+
+      // Orchestrator hub — 4 tools in diamond pattern
+      { id: "orch", type: "model", label: "Opus 4.6 Orchestrator", x: 700, y: 350 },
+      { id: "tool-tasks", type: "tool", label: "manage_tasks", x: 560, y: 120 },
+      { id: "tool-spawn", type: "tool", label: "spawn_agents", x: 840, y: 120 },
+      { id: "tool-query", type: "tool", label: "query_data", x: 560, y: 580 },
+      { id: "tool-code", type: "tool", label: "run_analysis", x: 840, y: 580 },
+
+      // Dynamic agent pool
+      { id: "agents", type: "agent", label: "Sub-Agents (0..N)", x: 1180, y: 120 },
+
+      // Deterministic exit
+      { id: "s2", type: "security", label: "Output Guardrails", x: 1180, y: 580 },
+      { id: "gate", type: "condition", label: "Confidence ≥ 92%?", x: 1500, y: 350 },
+      { id: "out-write", type: "action", label: "Write to Snowflake", x: 1780, y: 200 },
+      { id: "out-review", type: "human", label: "Analyst Review", x: 1780, y: 500 },
+      { id: "out-notify", type: "action", label: "Notify Slack", x: 2060, y: 200 },
     ],
     edges: [
+      // Deterministic entry
       { id: "e1", source: "t1", target: "s1" },
-      { id: "e2", source: "s1", target: "m1" },
-      { id: "e3", source: "m1", target: "t2", label: "tool call", sourceHandle: "tool-t", targetHandle: "bottom" },
-      { id: "e4", source: "m1", target: "t3", label: "tool call", sourceHandle: "tool-b", targetHandle: "top" },
-      { id: "e5", source: "m1", target: "s2" },
-      { id: "e6", source: "s2", target: "a1" },
+      { id: "e2", source: "s1", target: "orch" },
+
+      // Orchestrator → tools (4 tools, fan out from tool-t and tool-b handles)
+      { id: "e3", source: "orch", target: "tool-tasks", label: "tool call", sourceHandle: "tool-t", targetHandle: "bottom" },
+      { id: "e4", source: "orch", target: "tool-spawn", label: "tool call", sourceHandle: "tool-t", targetHandle: "bottom" },
+      { id: "e5", source: "orch", target: "tool-query", label: "tool call", sourceHandle: "tool-b", targetHandle: "top" },
+      { id: "e6", source: "orch", target: "tool-code", label: "tool call", sourceHandle: "tool-b", targetHandle: "top" },
+
+      // spawn_agents → Agent Pool (dispatch)
+      { id: "e7", source: "tool-spawn", target: "agents", label: "dispatch 0..N" },
+
+      // Agent Pool → Orchestrator (loop-back / report)
+      { id: "e8", source: "agents", target: "orch", label: "report", targetHandle: "loop-in" },
+
+      // Deterministic exit
+      { id: "e9", source: "orch", target: "s2", label: "done" },
+      { id: "e10", source: "s2", target: "gate" },
+      { id: "e11", source: "gate", target: "out-write", label: "≥ 92%" },
+      { id: "e12", source: "gate", target: "out-review", label: "< 92%" },
+      { id: "e13", source: "out-write", target: "out-notify" },
+      { id: "e14", source: "out-review", target: "out-write", label: "Approved" },
     ],
   },
   // ── Customer Support Triage ──
@@ -479,7 +589,7 @@ export const dashboardMetrics = {
   totalRunsToday: 147,
   successRate: 97.8,
   avgDuration: 2180,
-  costToday: 18.42,
+  costToday: 328.47,
   activeAgents: 3,
   totalAgents: 5,
   tokensToday: {
@@ -546,6 +656,14 @@ export const costTimeSeries: TimeSeriesPoint[] = Array.from({ length: 7 }, (_, i
   };
 });
 
+const agentCostPerRun: Record<string, number> = {
+  "agt-001": 54.25,
+  "agt-002": 33.05,
+  "agt-003": 131.69,
+  "agt-004": 27.59,
+  "agt-005": 78.10,
+};
+
 export const agentObservabilityMetrics = agents.map((a) => {
   const totalTokens = Math.floor(a.totalRuns * 4200);
   const tokensIn = Math.floor(totalTokens * 0.65);
@@ -559,9 +677,19 @@ export const agentObservabilityMetrics = agents.map((a) => {
     tokensIn,
     tokensOut,
     tokensUsed: totalTokens,
-    cost: Math.floor(a.totalRuns * 0.04 * 100) / 100,
+    cost: Math.floor(a.totalRuns * (agentCostPerRun[a.id] ?? 1) * 100) / 100,
   };
 });
+
+export const billingPlan = {
+  name: "Enterprise",
+  annualCost: 100_000,
+  monthlyCost: 10_000,
+  apiMultiplier: 15,
+  monthlyAllowance: 10_000,
+  periodLabel: "Feb 2026",
+  renewalDate: "2026-03-01",
+};
 
 export const auditTrail: AuditEntry[] = [
   { id: "aud-1", timestamp: "2026-02-13T14:28:00Z", agent: "Customer Support Triage", action: "classify_ticket", status: "success", details: "Ticket #4821 classified as P2, routed to Engineering", duration: 890 },
@@ -574,9 +702,9 @@ export const auditTrail: AuditEntry[] = [
   { id: "aud-8", timestamp: "2026-02-12T18:00:00Z", agent: "Market Intelligence", action: "analyze_market", status: "success", details: "End-of-day market summary generated", duration: 3800 },
 ];
 
-export const pluginStores: PluginStore[] = [
+export const pluginMarketplaces: PluginMarketplace[] = [
   {
-    id: "store-kraken",
+    id: "marketplace-kraken",
     name: "Kraken Verified",
     source: "kraken",
     url: "https://plugins.kraken-ai.com",
@@ -586,7 +714,7 @@ export const pluginStores: PluginStore[] = [
     connected: true,
   },
   {
-    id: "store-crawl4ai",
+    id: "marketplace-crawl4ai",
     name: "crawl4ai",
     source: "community",
     url: "https://github.com/crawl4ai/kraken-plugins",
@@ -596,7 +724,7 @@ export const pluginStores: PluginStore[] = [
     connected: true,
   },
   {
-    id: "store-datastack",
+    id: "marketplace-datastack",
     name: "datastack-labs",
     source: "community",
     url: "https://github.com/datastack-labs/kraken-connectors",
@@ -606,7 +734,7 @@ export const pluginStores: PluginStore[] = [
     connected: true,
   },
   {
-    id: "store-internal",
+    id: "marketplace-internal",
     name: "acme-internal",
     source: "custom",
     url: "https://github.com/acme-electronics/kraken-connectors",
@@ -619,21 +747,21 @@ export const pluginStores: PluginStore[] = [
 
 export const integrations: Integration[] = [
   // ─── Data Sources: Subscribed ───
-  { id: "int-01", name: "Amazon SP-API", category: "data-source", type: "Marketplace", status: "connected", lastSync: "2026-02-13T14:15:00Z", description: "Product listings, pricing, and order data from Amazon Seller Central", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/amazon-sp", version: "2.1.0", config: [
+  { id: "int-01", name: "Amazon SP-API", category: "data-source", type: "Marketplace", status: "connected", lastSync: "2026-02-13T14:15:00Z", description: "Product listings, pricing, and order data from Amazon Seller Central", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/amazon-sp", version: "2.1.0", config: [
     { label: "Seller ID", value: "A3FHKL9EXAMPLE", type: "text" },
     { label: "MWS Auth Token", value: "amzn.mws.tok-****-****", type: "secret" },
     { label: "Region", value: "North America", type: "select" },
     { label: "Sync Interval", value: "15 min", type: "select" },
     { label: "Include FBA Data", value: "true", type: "toggle" },
   ] },
-  { id: "int-02", name: "Shopify", category: "data-source", type: "E-commerce", status: "connected", lastSync: "2026-02-13T14:20:00Z", description: "Storefront inventory, orders, and customer data", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/shopify", version: "1.8.2", config: [
+  { id: "int-02", name: "Shopify", category: "data-source", type: "E-commerce", status: "connected", lastSync: "2026-02-13T14:20:00Z", description: "Storefront inventory, orders, and customer data", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/shopify", version: "1.8.2", config: [
     { label: "Store Domain", value: "acme-electronics.myshopify.com", type: "text" },
     { label: "API Access Token", value: "shpat_****-****", type: "secret" },
     { label: "API Version", value: "2026-01", type: "select" },
     { label: "Sync Orders", value: "true", type: "toggle" },
     { label: "Sync Inventory", value: "true", type: "toggle" },
   ] },
-  { id: "int-03", name: "PostgreSQL", category: "data-source", type: "Database", status: "connected", lastSync: "2026-02-13T14:00:00Z", description: "Internal product catalog and historical sales data", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/postgres", version: "1.5.0", config: [
+  { id: "int-03", name: "PostgreSQL", category: "data-source", type: "Database", status: "connected", lastSync: "2026-02-13T14:00:00Z", description: "Internal product catalog and historical sales data", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/postgres", version: "1.5.0", config: [
     { label: "Host", value: "db-prod.internal.acme.com", type: "text" },
     { label: "Port", value: "5432", type: "text" },
     { label: "Database", value: "product_catalog", type: "text" },
@@ -641,7 +769,7 @@ export const integrations: Integration[] = [
     { label: "Password", value: "****", type: "secret" },
     { label: "SSL Mode", value: "require", type: "select" },
   ] },
-  { id: "int-04", name: "Snowflake", category: "data-source", type: "Data Warehouse", status: "connected", lastSync: "2026-02-13T12:00:00Z", description: "Enterprise data warehouse with aggregated analytics", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/snowflake", version: "1.2.0", config: [
+  { id: "int-04", name: "Snowflake", category: "data-source", type: "Data Warehouse", status: "connected", lastSync: "2026-02-13T12:00:00Z", description: "Enterprise data warehouse with aggregated analytics", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/snowflake", version: "1.2.0", config: [
     { label: "Account", value: "acme.us-east-1", type: "text" },
     { label: "Warehouse", value: "ANALYTICS_WH", type: "text" },
     { label: "Database", value: "PROD_DW", type: "text" },
@@ -649,71 +777,71 @@ export const integrations: Integration[] = [
     { label: "Auth Method", value: "Key Pair", type: "select" },
   ] },
   // ─── Data Sources: Available ───
-  { id: "int-05", name: "Oracle Delta Share", category: "data-source", type: "Delta Sharing", status: "disconnected", description: "Partner data feed via Delta Sharing protocol", subscribed: false, enabled: false, source: "kraken", storeId: "store-kraken", version: "1.0.0" },
-  { id: "int-05b", name: "Google BigQuery", category: "data-source", type: "Data Warehouse", status: "disconnected", description: "Serverless data warehouse with built-in ML and geospatial analysis", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack-labs", storeId: "store-datastack", version: "0.9.1" },
+  { id: "int-05", name: "Oracle Delta Share", category: "data-source", type: "Delta Sharing", status: "disconnected", description: "Partner data feed via Delta Sharing protocol", subscribed: false, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.0.0" },
+  { id: "int-05b", name: "Google BigQuery", category: "data-source", type: "Data Warehouse", status: "disconnected", description: "Serverless data warehouse with built-in ML and geospatial analysis", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack-labs", marketplaceId: "marketplace-datastack", version: "0.9.1" },
 
   // ─── Tools: Subscribed ───
-  { id: "int-06", name: "Perplexity Search", category: "tool", type: "Search", status: "connected", description: "AI-powered web search for real-time market research", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/perplexity", version: "1.3.0", config: [
+  { id: "int-06", name: "Perplexity Search", category: "tool", type: "Search", status: "connected", description: "AI-powered web search for real-time market research", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/perplexity", version: "1.3.0", config: [
     { label: "API Key", value: "pplx-****-****", type: "secret" },
     { label: "Model", value: "sonar-pro", type: "select" },
     { label: "Max Results", value: "10", type: "text" },
   ] },
-  { id: "int-07", name: "Web Scraper", category: "tool", type: "Scraping", status: "connected", description: "Configurable web scraping for competitor monitoring", subscribed: true, enabled: true, source: "community", sourceDetail: "crawl4ai", storeId: "store-crawl4ai", mcpEndpoint: "mcp://community/crawl4ai/scraper", version: "0.8.4", config: [
+  { id: "int-07", name: "Web Scraper", category: "tool", type: "Scraping", status: "connected", description: "Configurable web scraping for competitor monitoring", subscribed: true, enabled: true, source: "community", sourceDetail: "crawl4ai", marketplaceId: "marketplace-crawl4ai", mcpEndpoint: "mcp://community/crawl4ai/scraper", version: "0.8.4", config: [
     { label: "Max Concurrent", value: "5", type: "text" },
     { label: "Rate Limit (req/s)", value: "2", type: "text" },
     { label: "Respect robots.txt", value: "true", type: "toggle" },
     { label: "User Agent", value: "KrakenBot/1.0", type: "text" },
   ] },
-  { id: "int-08", name: "Python Runtime", category: "tool", type: "Compute", status: "connected", description: "Sandboxed Python execution for custom analysis", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/python", version: "3.12.1", config: [
+  { id: "int-08", name: "Python Runtime", category: "tool", type: "Compute", status: "connected", description: "Sandboxed Python execution for custom analysis", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/python", version: "3.12.1", config: [
     { label: "Python Version", value: "3.12", type: "select" },
     { label: "Memory Limit", value: "512 MB", type: "select" },
     { label: "Timeout", value: "30s", type: "text" },
     { label: "Network Access", value: "false", type: "toggle" },
   ] },
-  { id: "int-09", name: "Calculator", category: "tool", type: "Utility", status: "connected", description: "Mathematical operations and statistical functions", subscribed: true, enabled: false, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/calculator", version: "1.0.0", config: [
+  { id: "int-09", name: "Calculator", category: "tool", type: "Utility", status: "connected", description: "Mathematical operations and statistical functions", subscribed: true, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/calculator", version: "1.0.0", config: [
     { label: "Precision", value: "15 digits", type: "select" },
   ] },
   // ─── Tools: Available ───
-  { id: "int-09b", name: "Wolfram Alpha", category: "tool", type: "Computation", status: "disconnected", description: "Advanced computation engine for scientific and mathematical queries", subscribed: false, enabled: false, source: "community", sourceDetail: "wolfram-contrib", storeId: "store-datastack", version: "0.5.0" },
-  { id: "int-09c", name: "Firecrawl", category: "tool", type: "Scraping", status: "disconnected", description: "High-performance web crawler with structured data extraction", subscribed: false, enabled: false, source: "community", sourceDetail: "mendableai", storeId: "store-crawl4ai", version: "1.1.0" },
+  { id: "int-09b", name: "Wolfram Alpha", category: "tool", type: "Computation", status: "disconnected", description: "Advanced computation engine for scientific and mathematical queries", subscribed: false, enabled: false, source: "community", sourceDetail: "wolfram-contrib", marketplaceId: "marketplace-datastack", version: "0.5.0" },
+  { id: "int-09c", name: "Firecrawl", category: "tool", type: "Scraping", status: "disconnected", description: "High-performance web crawler with structured data extraction", subscribed: false, enabled: false, source: "community", sourceDetail: "mendableai", marketplaceId: "marketplace-crawl4ai", version: "1.1.0" },
 
   // ─── Actions: Subscribed ───
-  { id: "int-10", name: "Email (SMTP)", category: "action", type: "Notification", status: "connected", description: "Send emails via configured SMTP server", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/smtp", version: "1.1.0", config: [
+  { id: "int-10", name: "Email (SMTP)", category: "action", type: "Notification", status: "connected", description: "Send emails via configured SMTP server", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/smtp", version: "1.1.0", config: [
     { label: "SMTP Host", value: "smtp.acme-electronics.com", type: "text" },
     { label: "Port", value: "587", type: "text" },
     { label: "From Address", value: "kraken@acme-electronics.com", type: "text" },
     { label: "Auth Password", value: "****", type: "secret" },
     { label: "TLS", value: "true", type: "toggle" },
   ] },
-  { id: "int-11", name: "Slack", category: "action", type: "Notification", status: "connected", lastSync: "2026-02-13T14:15:00Z", description: "Post messages and alerts to Slack channels", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/slack", version: "2.0.1", config: [
+  { id: "int-11", name: "Slack", category: "action", type: "Notification", status: "connected", lastSync: "2026-02-13T14:15:00Z", description: "Post messages and alerts to Slack channels", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/slack", version: "2.0.1", config: [
     { label: "Workspace", value: "acme-electronics.slack.com", type: "text" },
     { label: "Bot Token", value: "xoxb-****-****", type: "secret" },
     { label: "Default Channel", value: "#kraken-alerts", type: "text" },
     { label: "Thread Replies", value: "true", type: "toggle" },
   ] },
-  { id: "int-12", name: "Inventory Update API", category: "action", type: "System", status: "connected", description: "Push inventory adjustments to warehouse management system", subscribed: true, enabled: true, source: "custom", sourceDetail: "internal/wms-bridge", storeId: "store-internal", mcpEndpoint: "mcp://custom/internal/wms-bridge", version: "0.3.0", config: [
+  { id: "int-12", name: "Inventory Update API", category: "action", type: "System", status: "connected", description: "Push inventory adjustments to warehouse management system", subscribed: true, enabled: true, source: "custom", sourceDetail: "internal/wms-bridge", marketplaceId: "marketplace-internal", mcpEndpoint: "mcp://custom/internal/wms-bridge", version: "0.3.0", config: [
     { label: "API Base URL", value: "https://wms.internal.acme.com/api/v2", type: "text" },
     { label: "API Key", value: "wms-****-****", type: "secret" },
     { label: "Batch Size", value: "100", type: "text" },
     { label: "Dry Run", value: "false", type: "toggle" },
   ] },
-  { id: "int-13", name: "Price Adjustment API", category: "action", type: "System", status: "connected", description: "Update product pricing across connected marketplaces", subscribed: true, enabled: false, source: "custom", sourceDetail: "internal/pricing-sync", storeId: "store-internal", mcpEndpoint: "mcp://custom/internal/pricing-sync", version: "0.2.1", config: [
+  { id: "int-13", name: "Price Adjustment API", category: "action", type: "System", status: "connected", description: "Update product pricing across connected marketplaces", subscribed: true, enabled: false, source: "custom", sourceDetail: "internal/pricing-sync", marketplaceId: "marketplace-internal", mcpEndpoint: "mcp://custom/internal/pricing-sync", version: "0.2.1", config: [
     { label: "API Endpoint", value: "https://pricing.internal.acme.com/sync", type: "text" },
     { label: "Auth Token", value: "price-****-****", type: "secret" },
     { label: "Max Price Delta", value: "15%", type: "text" },
     { label: "Require Approval", value: "true", type: "toggle" },
   ] },
-  { id: "int-13b", name: "Zendesk", category: "action", type: "Ticketing", status: "connected", lastSync: "2026-02-13T14:28:00Z", description: "Ticket management, classification, and routing via Zendesk Support API", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/zendesk", version: "1.6.0", config: [
+  { id: "int-13b", name: "Zendesk", category: "action", type: "Ticketing", status: "connected", lastSync: "2026-02-13T14:28:00Z", description: "Ticket management, classification, and routing via Zendesk Support API", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/zendesk", version: "1.6.0", config: [
     { label: "Subdomain", value: "acme-electronics", type: "text" },
     { label: "API Token", value: "zd-****-****", type: "secret" },
     { label: "Webhook Secret", value: "whsec-****", type: "secret" },
     { label: "Auto-Assign", value: "true", type: "toggle" },
   ] },
   // ─── Actions: Available ───
-  { id: "int-14", name: "Webhook Dispatcher", category: "action", type: "Integration", status: "disconnected", description: "Dispatch webhooks to external systems on trigger events", subscribed: false, enabled: false, source: "kraken", storeId: "store-kraken", version: "1.4.0" },
-  { id: "int-14b", name: "Microsoft Teams", category: "action", type: "Notification", status: "disconnected", description: "Post alerts and reports to Microsoft Teams channels", subscribed: false, enabled: false, source: "community", sourceDetail: "ms-contrib", storeId: "store-datastack", version: "0.7.0" },
+  { id: "int-14", name: "Webhook Dispatcher", category: "action", type: "Integration", status: "disconnected", description: "Dispatch webhooks to external systems on trigger events", subscribed: false, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.4.0" },
+  { id: "int-14b", name: "Microsoft Teams", category: "action", type: "Notification", status: "disconnected", description: "Post alerts and reports to Microsoft Teams channels", subscribed: false, enabled: false, source: "community", sourceDetail: "ms-contrib", marketplaceId: "marketplace-datastack", version: "0.7.0" },
   // ─── Skills: Installed ───
-  { id: "int-sk1", name: "Competitor Deep Dive", category: "skill", type: "Analysis", status: "connected", description: "Multi-source competitor analysis with pricing matrix, trend identification, and market positioning insights", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "2.0.1", githubUrl: "https://github.com/kraken-ai/skills/tree/main/competitor-deep-dive", skillContent: `# Competitor Deep Dive
+  { id: "int-sk1", name: "Competitor Deep Dive", category: "skill", type: "Analysis", status: "connected", description: "Multi-source competitor analysis with pricing matrix, trend identification, and market positioning insights", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "2.0.1", githubUrl: "https://github.com/kraken-ai/skills/tree/main/competitor-deep-dive", skillContent: `# Competitor Deep Dive
 
 This skill performs comprehensive competitor analysis. When activated, follow these instructions exactly.
 
@@ -750,20 +878,20 @@ Structure the final output as:
 
 Always include a \`confidence_score\` (0.0-1.0) and \`sources_used\` count in the metadata. If confidence falls below 0.5, prepend a warning to the executive summary.
 ` },
-  { id: "int-sk2", name: "Report Builder", category: "skill", type: "Output", status: "connected", description: "Generate formatted business intelligence reports from agent run data with charts, summaries, and recommendations", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.8.0" },
-  { id: "int-sk3", name: "Response Drafter", category: "skill", type: "Communication", status: "connected", description: "Context-aware customer response generation with tone matching, knowledge base grounding, and brand voice consistency", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.5.2" },
-  { id: "int-sk4", name: "Price Validator", category: "skill", type: "Compliance", status: "connected", description: "Validate proposed price changes against business rules, margin thresholds, MAP policies, and competitive floor limits", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.3.0" },
-  { id: "int-sk5", name: "Inventory Reconciler", category: "skill", type: "Automation", status: "connected", description: "Cross-channel inventory reconciliation with automatic discrepancy detection and corrective action generation", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.6.0" },
-  { id: "int-sk6", name: "Ticket Summarizer", category: "skill", type: "Communication", status: "connected", description: "Extract priority signals, product category, customer sentiment, and key details from support tickets for fast routing", subscribed: true, enabled: true, source: "community", sourceDetail: "crawl4ai", storeId: "store-crawl4ai", version: "0.9.3" },
-  { id: "int-sk7", name: "Bulk Updater", category: "skill", type: "Automation", status: "connected", description: "Batch operations for inventory adjustments and pricing updates across thousands of SKUs with rollback support", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.2.0" },
-  { id: "int-sk8", name: "Compliance Auditor", category: "skill", type: "Compliance", status: "connected", description: "Generate audit trails, compliance documentation, and regulatory reports for agent operations", subscribed: true, enabled: true, source: "kraken", storeId: "store-kraken", version: "1.1.0" },
+  { id: "int-sk2", name: "Report Builder", category: "skill", type: "Output", status: "connected", description: "Generate formatted business intelligence reports from agent run data with charts, summaries, and recommendations", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.8.0" },
+  { id: "int-sk3", name: "Response Drafter", category: "skill", type: "Communication", status: "connected", description: "Context-aware customer response generation with tone matching, knowledge base grounding, and brand voice consistency", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.5.2" },
+  { id: "int-sk4", name: "Price Validator", category: "skill", type: "Compliance", status: "connected", description: "Validate proposed price changes against business rules, margin thresholds, MAP policies, and competitive floor limits", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.3.0" },
+  { id: "int-sk5", name: "Inventory Reconciler", category: "skill", type: "Automation", status: "connected", description: "Cross-channel inventory reconciliation with automatic discrepancy detection and corrective action generation", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.6.0" },
+  { id: "int-sk6", name: "Ticket Summarizer", category: "skill", type: "Communication", status: "connected", description: "Extract priority signals, product category, customer sentiment, and key details from support tickets for fast routing", subscribed: true, enabled: true, source: "community", sourceDetail: "crawl4ai", marketplaceId: "marketplace-crawl4ai", version: "0.9.3" },
+  { id: "int-sk7", name: "Bulk Updater", category: "skill", type: "Automation", status: "connected", description: "Batch operations for inventory adjustments and pricing updates across thousands of SKUs with rollback support", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.2.0" },
+  { id: "int-sk8", name: "Compliance Auditor", category: "skill", type: "Compliance", status: "connected", description: "Generate audit trails, compliance documentation, and regulatory reports for agent operations", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.1.0" },
   // ─── Skills: Available ───
-  { id: "int-sk9", name: "Demand Prophet", category: "skill", type: "Analysis", status: "disconnected", description: "Statistical demand forecasting with seasonal decomposition, trend projection, and confidence intervals", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", storeId: "store-datastack", version: "0.8.0" },
-  { id: "int-sk10", name: "Market Pulse", category: "skill", type: "Analysis", status: "disconnected", description: "Real-time market trend scanning with signal detection, anomaly alerts, and competitive intelligence feeds", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", storeId: "store-datastack", version: "0.6.1" },
-  { id: "int-sk11", name: "Escalation Brief", category: "skill", type: "Communication", status: "disconnected", description: "Generate context-rich escalation summaries with ticket history, customer profile, and recommended actions", subscribed: false, enabled: false, source: "community", sourceDetail: "crawl4ai", storeId: "store-crawl4ai", version: "0.4.0" },
-  { id: "int-sk12", name: "Safety Scanner", category: "skill", type: "Compliance", status: "disconnected", description: "Content safety, PII detection, prompt injection defense, and policy compliance checking for agent I/O", subscribed: false, enabled: false, source: "kraken", storeId: "store-kraken", version: "2.1.0" },
-  { id: "int-sk13", name: "Price Lab", category: "skill", type: "Optimization", status: "disconnected", description: "Set up and analyze price A/B tests with statistical significance calculation and revenue impact projection", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", storeId: "store-datastack", version: "0.3.0" },
-  { id: "int-sk14", name: "Sentiment Radar", category: "skill", type: "Analysis", status: "disconnected", description: "Multi-channel customer sentiment analysis with trend detection across reviews, tickets, and social mentions", subscribed: false, enabled: false, source: "community", sourceDetail: "crawl4ai", storeId: "store-crawl4ai", version: "0.5.2" },
+  { id: "int-sk9", name: "Demand Prophet", category: "skill", type: "Analysis", status: "disconnected", description: "Statistical demand forecasting with seasonal decomposition, trend projection, and confidence intervals", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", marketplaceId: "marketplace-datastack", version: "0.8.0" },
+  { id: "int-sk10", name: "Market Pulse", category: "skill", type: "Analysis", status: "disconnected", description: "Real-time market trend scanning with signal detection, anomaly alerts, and competitive intelligence feeds", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", marketplaceId: "marketplace-datastack", version: "0.6.1" },
+  { id: "int-sk11", name: "Escalation Brief", category: "skill", type: "Communication", status: "disconnected", description: "Generate context-rich escalation summaries with ticket history, customer profile, and recommended actions", subscribed: false, enabled: false, source: "community", sourceDetail: "crawl4ai", marketplaceId: "marketplace-crawl4ai", version: "0.4.0" },
+  { id: "int-sk12", name: "Safety Scanner", category: "skill", type: "Compliance", status: "disconnected", description: "Content safety, PII detection, prompt injection defense, and policy compliance checking for agent I/O", subscribed: false, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", version: "2.1.0" },
+  { id: "int-sk13", name: "Price Lab", category: "skill", type: "Optimization", status: "disconnected", description: "Set up and analyze price A/B tests with statistical significance calculation and revenue impact projection", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", marketplaceId: "marketplace-datastack", version: "0.3.0" },
+  { id: "int-sk14", name: "Sentiment Radar", category: "skill", type: "Analysis", status: "disconnected", description: "Multi-channel customer sentiment analysis with trend detection across reviews, tickets, and social mentions", subscribed: false, enabled: false, source: "community", sourceDetail: "crawl4ai", marketplaceId: "marketplace-crawl4ai", version: "0.5.2" },
 ];
 
 export const computeClusters: ComputeCluster[] = [
@@ -1375,7 +1503,7 @@ export interface ComputeUsage {
 export const computeUsage: ComputeUsage = {
   includedHours: 200,
   usedHours: 164.2,
-  overageRatePerHour: 0.48,
+  overageRatePerHour: 0.60,
   periodLabel: "Feb 2026",
   byPipeline: [
     { pipelineId: "pip-002", pipelineName: "Inventory Sync", hours: 72.4, runs: 1248 },
@@ -1634,43 +1762,103 @@ export const detailedAgentRuns: DetailedAgentRun[] = [
         toolInfo: { toolName: "Slack", endpoint: "POST /chat.postMessage", httpStatus: 200 } },
     ],
   },
-  // ── Demand Forecasting runs ──
+  // ── Demand Forecasting runs (Orchestrator + Sub-Agents) ──
   {
     id: "drun-010", agentId: "agt-003", agentName: "Demand Forecasting", status: "success",
-    startedAt: "2026-02-13T12:00:00Z", completedAt: "2026-02-13T13:05:00Z", duration: 3_900_000, tokensUsed: 384_000, cost: 12.48, trigger: "scheduled", triggeredBy: "Cron (daily 12:00 UTC)", stepCount: 7, errorCount: 0,
+    startedAt: "2026-02-14T06:00:00Z", completedAt: "2026-02-14T07:05:00Z", duration: 3_900_000, tokensUsed: 1_284_000, cost: 48.72, trigger: "scheduled", triggeredBy: "Cron (daily 06:00 UTC)", stepCount: 18, errorCount: 0,
     traceSteps: [
-      { id: "dt-010-1", nodeId: "t1", nodeLabel: "Daily Schedule", nodeType: "trigger", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 3, input: "Daily forecast trigger", output: "Context initialized" },
-      { id: "dt-010-2", nodeId: "s1", nodeLabel: "Data Access Auth", nodeType: "security", status: "success", startedAt: "2026-02-13T12:00:00Z", duration: 145, input: "Verify Snowflake + DB access", output: "All credentials valid",
-        securityInfo: { checks: [{ name: "Snowflake auth", result: "pass", detail: "Key pair valid" }, { name: "PostgreSQL auth", result: "pass", detail: "Connection pooled" }, { name: "Data access scope", result: "pass", detail: "Read-only access confirmed" }], findings: [] } },
-      { id: "dt-010-3", nodeId: "t2", nodeLabel: "Fetch Historical Sales", nodeType: "tool", status: "success", startedAt: "2026-02-13T12:00:01Z", duration: 186_000, input: "Query 2-year sales history across all warehouses", output: "89 categories, 847,000 data points",
-        toolInfo: { toolName: "Snowflake", endpoint: "SELECT daily_sales_summary", httpStatus: 200, request: "SELECT ... FROM daily_sales_summary WHERE date >= DATEADD(year, -2, CURRENT_DATE)" } },
-      { id: "dt-010-4", nodeId: "t3", nodeLabel: "Fetch Market Signals", nodeType: "tool", status: "success", startedAt: "2026-02-13T12:00:01Z", duration: 228_000, input: "Query market trends, seasonality indices + macro signals", output: "1,240 trend signals across 6 markets",
-        toolInfo: { toolName: "PostgreSQL", endpoint: "SELECT market_signals", httpStatus: 200 } },
-      { id: "dt-010-5", nodeId: "m1", nodeLabel: "GPT-5.2: Forecast Model", nodeType: "model", status: "success", startedAt: "2026-02-13T12:04:00Z", duration: 3_342_000, input: "Run Monte Carlo demand simulation — 12,000 iterations per category across 89 categories with multi-horizon seasonality decomposition...", output: "Forecasts generated with 94.2% confidence interval — 12K iterations/category completed", tokensInput: 248_000, tokensOutput: 136_000,
-        modelInfo: { provider: "OpenAI", model: "GPT-5.2", tokens: 384_000, cost: 12.48 } },
-      { id: "dt-010-6", nodeId: "s2", nodeLabel: "Output Audit", nodeType: "security", status: "success", startedAt: "2026-02-13T12:59:42Z", duration: 92, input: "Audit forecast outputs", output: "All forecasts within bounds",
-        securityInfo: { checks: [{ name: "Forecast bounds check", result: "pass", detail: "All predictions within 3\u03C3" }, { name: "Data lineage recorded", result: "pass", detail: "Lineage logged to audit table" }], findings: [] } },
-      { id: "dt-010-7", nodeId: "a1", nodeLabel: "Write Forecast to Snowflake", nodeType: "action", status: "success", startedAt: "2026-02-13T13:00:00Z", duration: 143_760, input: "INSERT 89 × 7-day forecast matrices + confidence intervals", output: "623 forecast rows + 5,607 interval records inserted",
+      // ── Deterministic entry ──
+      { id: "dt-010-01", nodeId: "t1", nodeLabel: "Scheduled / On-Demand", nodeType: "trigger", status: "success", startedAt: "2026-02-14T06:00:00Z", duration: 3, input: "Daily forecast trigger", output: "Context initialized — 89 product categories queued" },
+      { id: "dt-010-02", nodeId: "s1", nodeLabel: "Input Auth & Scoping", nodeType: "security", status: "success", startedAt: "2026-02-14T06:00:00Z", duration: 145, input: "Verify Snowflake + DB + API credentials, scope data access for orchestrator and sub-agents", output: "All credentials valid, scoped tokens issued for up to 8 sub-agents",
+        securityInfo: { checks: [{ name: "Snowflake auth", result: "pass", detail: "Key pair valid" }, { name: "PostgreSQL auth", result: "pass", detail: "Connection pooled" }, { name: "Sub-agent token scope", result: "pass", detail: "Read-only scoped, max 8 agents" }, { name: "Data access scope", result: "pass", detail: "Read-only confirmed" }], findings: [] } },
+
+      // ── Orchestrator Iteration 1: Assess, plan tasks, query data, spawn 3 agents ──
+      { id: "dt-010-03", nodeId: "orch", nodeLabel: "Opus 4.6 Orchestrator", nodeType: "model", status: "success", startedAt: "2026-02-14T06:00:01Z", duration: 180_000, input: "Iteration 1 — Initial assessment. 89 product categories, no prior data loaded. Decide which tools to use and how many sub-agents to spawn.", output: "Plan: use manage_tasks to create 3 tasks, query_data for historical sales, then spawn_agents to dispatch 3 parallel sub-agents.", tokensInput: 42_000, tokensOutput: 18_000,
+        modelInfo: { provider: "Anthropic", model: "Claude Opus 4.6", tokens: 60_000, cost: 3.60 } },
+      { id: "dt-010-04", nodeId: "tool-tasks", nodeLabel: "manage_tasks", nodeType: "tool", status: "success", startedAt: "2026-02-14T06:03:01Z", duration: 800, input: "TaskCreate × 3: (1) Data Collection — collect & normalize 89 categories, (2) Time Series — STL + ARIMA decomposition, (3) Market Signals — scan 6 market feeds", output: "3 tasks created: task-001 (Data Collection), task-002 (Time Series), task-003 (Market Signals). All pending, no dependencies.",
+        toolInfo: { toolName: "Task Manager", endpoint: "POST /tasks/create", httpStatus: 200, request: '{"tasks": 3, "status": "pending"}', response: '{"created": ["task-001","task-002","task-003"]}' } },
+      { id: "dt-010-05", nodeId: "tool-query", nodeLabel: "query_data", nodeType: "tool", status: "success", startedAt: "2026-02-14T06:03:02Z", duration: 14_400, input: "Query Snowflake: 2-year sales history across 89 product categories, join with inventory snapshots", output: "847,000 data points loaded — 89 categories, 730 days, 3 data quality issues flagged",
+        toolInfo: { toolName: "Snowflake", endpoint: "SELECT sales_history JOIN inventory", httpStatus: 200, request: '{"categories": 89, "window": "2y"}', response: '{"rows": 847000, "quality_issues": 3}' } },
+      { id: "dt-010-06", nodeId: "tool-spawn", nodeLabel: "spawn_agents", nodeType: "tool", status: "success", startedAt: "2026-02-14T06:03:16Z", duration: 1_200, input: "Spawn 3 sub-agents: Data Collection Agent (task-001), Time Series Agent (task-002), Market Signals Agent (task-003). Each gets scoped context + read-only credentials.", output: "3 sub-agents launched in parallel. Agent IDs: sa-dc-01, sa-ts-01, sa-ms-01. All assigned to pending tasks.",
+        toolInfo: { toolName: "Agent Spawner", endpoint: "POST /agents/spawn", httpStatus: 200, request: '{"count": 3, "roles": ["data-collection","time-series","market-signals"]}', response: '{"spawned": 3, "agent_ids": ["sa-dc-01","sa-ts-01","sa-ms-01"]}' } },
+      { id: "dt-010-07", nodeId: "agents", nodeLabel: "Sub-Agents (3 spawned)", nodeType: "agent", status: "success", startedAt: "2026-02-14T06:03:18Z", duration: 480_000, input: "3 agents working in parallel:\n• sa-dc-01: Collect & normalize 89 categories from Snowflake\n• sa-ts-01: STL decomposition + ARIMA fitting per category\n• sa-ms-01: Scan Google Trends, social sentiment, competitor pricing, macro indicators, weather, events", output: "All 3 agents reported back:\n• sa-dc-01: 847K points normalized, 3 quality issues auto-corrected\n• sa-ts-01: 89 models fitted, 7 regime changes detected, 12 highly seasonal categories\n• sa-ms-01: 1,240 signals across 6 feeds — 3 strong buy signals (post-CES electronics), 2 caution flags (tariff uncertainty)" },
+
+      // ── Orchestrator Iteration 2: Merge reports, update tasks, spawn 2 more agents ──
+      { id: "dt-010-08", nodeId: "orch", nodeLabel: "Opus 4.6 Orchestrator", nodeType: "model", status: "success", startedAt: "2026-02-14T06:11:18Z", duration: 540_000, input: "Iteration 2 — Received SendMessage reports from 3 sub-agents. Merge 847K data points + 89 models + 1,240 signals. Resolve conflicts. Decide next actions.", output: "Merged and validated. 4 conflicts resolved (categories #12, #34, #67, #88). Decision: update tasks (mark 3 complete, create 2 new), use run_analysis for cross-validation + enrichment, then spawn 2 targeted sub-agents.", tokensInput: 186_000, tokensOutput: 94_000,
+        modelInfo: { provider: "Anthropic", model: "Claude Opus 4.6", tokens: 280_000, cost: 16.80 } },
+      { id: "dt-010-09", nodeId: "tool-tasks", nodeLabel: "manage_tasks", nodeType: "tool", status: "success", startedAt: "2026-02-14T06:20:18Z", duration: 600, input: "TaskUpdate × 3: mark task-001, task-002, task-003 as completed. TaskCreate × 2: (4) Scenario Planning — 3 scenarios × 89 categories, (5) Anomaly Detection — Z-score sweep. task-004 blockedBy: [task-001, task-002, task-003].", output: "3 tasks completed. 2 new tasks: task-004 (Scenario Planning), task-005 (Anomaly Detection). Dependencies resolved — both unblocked.",
+        toolInfo: { toolName: "Task Manager", endpoint: "POST /tasks/batch", httpStatus: 200, request: '{"completed": 3, "created": 2}', response: '{"total_tasks": 5, "pending": 2}' } },
+      { id: "dt-010-10", nodeId: "tool-code", nodeLabel: "run_analysis", nodeType: "tool", status: "success", startedAt: "2026-02-14T06:20:19Z", duration: 96_000, input: "Cross-validate: 14-day holdout per category. Enrich: freight indices + supplier lead times + 142 promotional events.", output: "MAPE 4.2% (within 5% threshold). 3 enrichment datasets merged — 142 promos mapped to 58 categories.",
+        toolInfo: { toolName: "Compute Cluster", endpoint: "POST /jobs/validate-and-enrich", httpStatus: 200, request: '{"holdout_days": 14, "enrich_sources": ["freight","lead_times","promos"]}', response: '{"mape": 4.2, "enriched": 89}' } },
+      { id: "dt-010-11", nodeId: "tool-spawn", nodeLabel: "spawn_agents", nodeType: "tool", status: "success", startedAt: "2026-02-14T06:21:55Z", duration: 900, input: "Spawn 2 sub-agents: Scenario Planning Agent (task-004), Anomaly Detection Agent (task-005). Context includes merged results from iteration 1.", output: "2 sub-agents launched. Agent IDs: sa-sp-01, sa-ad-01.",
+        toolInfo: { toolName: "Agent Spawner", endpoint: "POST /agents/spawn", httpStatus: 200, request: '{"count": 2, "roles": ["scenario-planning","anomaly-detection"]}', response: '{"spawned": 2, "agent_ids": ["sa-sp-01","sa-ad-01"]}' } },
+      { id: "dt-010-12", nodeId: "agents", nodeLabel: "Sub-Agents (2 spawned)", nodeType: "agent", status: "success", startedAt: "2026-02-14T06:21:56Z", duration: 600_000, input: "2 agents working:\n• sa-sp-01: Generate base/optimistic/pessimistic scenarios × 89 categories\n• sa-ad-01: Z-score outliers, impossible demand patterns, cross-category correlation breaks", output: "Both reported back:\n• sa-sp-01: 267 scenario forecasts (base 60%, optimistic 25%, pessimistic 15%)\n• sa-ad-01: 4 anomalies detected & corrected (negative demand in #23, correlation break #56, duplicate signal #71-72)" },
+
+      // ── Orchestrator Iteration 3: Final synthesis, no more agents needed ──
+      { id: "dt-010-13", nodeId: "orch", nodeLabel: "Opus 4.6 Orchestrator", nodeType: "model", status: "success", startedAt: "2026-02-14T06:31:56Z", duration: 780_000, input: "Iteration 3 — All 5 sub-agents complete. 267 scenario forecasts + 4 anomaly corrections available. Assess: synthesize or iterate?", output: "Sufficient data for final synthesis. Decision: use run_analysis for Monte Carlo (12K iterations/category) and confidence intervals. No more sub-agents needed. Mark remaining tasks complete, then exit loop.", tokensInput: 248_000, tokensOutput: 136_000,
+        modelInfo: { provider: "Anthropic", model: "Claude Opus 4.6", tokens: 384_000, cost: 23.04 } },
+      { id: "dt-010-14", nodeId: "tool-tasks", nodeLabel: "manage_tasks", nodeType: "tool", status: "success", startedAt: "2026-02-14T06:44:56Z", duration: 400, input: "TaskUpdate × 2: mark task-004 and task-005 as completed. TaskList: all 5/5 tasks complete.", output: "All tasks complete. Task list: 5/5 done. Ready to finalize.",
+        toolInfo: { toolName: "Task Manager", endpoint: "POST /tasks/batch", httpStatus: 200, request: '{"completed": 2}', response: '{"total_tasks": 5, "all_complete": true}' } },
+      { id: "dt-010-15", nodeId: "tool-code", nodeLabel: "run_analysis", nodeType: "tool", status: "success", startedAt: "2026-02-14T06:44:57Z", duration: 300_000, input: "Monte Carlo: 12,000 iterations × 89 categories (GPU-accelerated). Bootstrap confidence intervals (BCa, n=5000).", output: "1,068,000 simulations complete. Overall weighted confidence: 94.6%, range [91.2%, 97.8%].",
+        toolInfo: { toolName: "Compute Cluster (GPU)", endpoint: "POST /jobs/monte-carlo-and-ci", httpStatus: 200, request: '{"mc_iterations": 12000, "categories": 89, "ci_method": "BCa", "ci_n": 5000}', response: '{"sims": 1068000, "confidence": 94.6, "range": [91.2, 97.8]}' } },
+
+      // ── Deterministic exit ──
+      { id: "dt-010-16", nodeId: "s2", nodeLabel: "Output Guardrails", nodeType: "security", status: "success", startedAt: "2026-02-14T06:59:42Z", duration: 92, input: "Audit forecast outputs: bounds check, data lineage, classification", output: "All forecasts within bounds — full lineage: 3 orchestrator loops, 5 sub-agents, 5 tasks, 10 tool calls",
+        securityInfo: { checks: [{ name: "Forecast bounds check", result: "pass", detail: "All predictions within 3σ" }, { name: "Data lineage recorded", result: "pass", detail: "3 loops, 5 agents, 5 tasks, 10 tool calls" }, { name: "Data classification", result: "pass", detail: "Output classified as INTERNAL" }], findings: [] } },
+      { id: "dt-010-17", nodeId: "gate", nodeLabel: "Confidence ≥ 92%?", nodeType: "condition", status: "success", startedAt: "2026-02-14T06:59:42Z", duration: 5, input: "weighted_confidence >= 0.92", output: "94.6% ≥ 92% → Yes" },
+      { id: "dt-010-18", nodeId: "out-write", nodeLabel: "Write to Snowflake", nodeType: "action", status: "success", startedAt: "2026-02-14T06:59:43Z", duration: 143_760, input: "INSERT 89 × 2 forecast matrices (7d + 30d) + confidence intervals + scenario breakdowns", output: "1,246 forecast rows + 5,607 interval records + 267 scenario records inserted",
         toolInfo: { toolName: "Snowflake", endpoint: "INSERT forecasts", httpStatus: 200 } },
+      { id: "dt-010-19", nodeId: "out-notify", nodeLabel: "Notify Slack", nodeType: "action", status: "success", startedAt: "2026-02-14T07:02:08Z", duration: 340, input: "Post forecast summary to #demand-planning", output: "Summary posted — 94.6% confidence, 89 categories, 3 loop iterations, 5 sub-agents, 5 tasks",
+        toolInfo: { toolName: "Slack", endpoint: "POST /chat.postMessage", httpStatus: 200, request: '{"channel": "#demand-planning"}', response: '{"ok": true}' } },
     ],
   },
   {
     id: "drun-011", agentId: "agt-003", agentName: "Demand Forecasting", status: "success",
-    startedAt: "2026-02-12T12:00:00Z", completedAt: "2026-02-12T13:03:00Z", duration: 3_780_000, tokensUsed: 396_000, cost: 12.82, trigger: "scheduled", triggeredBy: "Cron (daily)", stepCount: 7, errorCount: 0,
+    startedAt: "2026-02-13T06:00:00Z", completedAt: "2026-02-13T07:03:00Z", duration: 3_780_000, tokensUsed: 1_196_000, cost: 46.38, trigger: "scheduled", triggeredBy: "Cron (daily)", stepCount: 17, errorCount: 0,
     traceSteps: [
-      { id: "dt-011-1", nodeId: "t1", nodeLabel: "Daily Schedule", nodeType: "trigger", status: "success", startedAt: "2026-02-12T12:00:00Z", duration: 2, input: "Trigger", output: "Ready" },
-      { id: "dt-011-2", nodeId: "s1", nodeLabel: "Data Access Auth", nodeType: "security", status: "success", startedAt: "2026-02-12T12:00:00Z", duration: 128, input: "Verify access", output: "Valid",
-        securityInfo: { checks: [{ name: "Snowflake auth", result: "pass", detail: "OK" }, { name: "Data access scope", result: "pass", detail: "Read-only" }], findings: [] } },
-      { id: "dt-011-3", nodeId: "t2", nodeLabel: "Fetch Historical Sales", nodeType: "tool", status: "success", startedAt: "2026-02-12T12:00:01Z", duration: 198_000, input: "2-year sales history", output: "89 categories, 831,000 data points",
-        toolInfo: { toolName: "Snowflake", endpoint: "SELECT", httpStatus: 200 } },
-      { id: "dt-011-4", nodeId: "t3", nodeLabel: "Fetch Market Signals", nodeType: "tool", status: "success", startedAt: "2026-02-12T12:00:01Z", duration: 216_000, input: "Market trends + macro signals", output: "1,180 signals across 6 markets",
-        toolInfo: { toolName: "PostgreSQL", endpoint: "SELECT", httpStatus: 200 } },
-      { id: "dt-011-5", nodeId: "m1", nodeLabel: "GPT-5.2: Forecast Model", nodeType: "model", status: "success", startedAt: "2026-02-12T12:04:00Z", duration: 3_234_000, input: "Monte Carlo simulation — 12,000 iterations × 89 categories...", output: "89 forecasts at 93.8% CI — 12K iterations/category", tokensInput: 256_000, tokensOutput: 140_000,
-        modelInfo: { provider: "OpenAI", model: "GPT-5.2", tokens: 396_000, cost: 12.82 } },
-      { id: "dt-011-6", nodeId: "s2", nodeLabel: "Output Audit", nodeType: "security", status: "success", startedAt: "2026-02-12T12:57:54Z", duration: 78, input: "Audit", output: "Clean",
-        securityInfo: { checks: [{ name: "Bounds check", result: "pass", detail: "Within 3\u03C3" }], findings: [] } },
-      { id: "dt-011-7", nodeId: "a1", nodeLabel: "Write Forecast to Snowflake", nodeType: "action", status: "success", startedAt: "2026-02-12T12:58:00Z", duration: 131_792, input: "INSERT forecast matrices", output: "623 forecast rows inserted",
+      // ── Entry ──
+      { id: "dt-011-01", nodeId: "t1", nodeLabel: "Scheduled / On-Demand", nodeType: "trigger", status: "success", startedAt: "2026-02-13T06:00:00Z", duration: 2, input: "Daily trigger", output: "89 categories queued" },
+      { id: "dt-011-02", nodeId: "s1", nodeLabel: "Input Auth & Scoping", nodeType: "security", status: "success", startedAt: "2026-02-13T06:00:00Z", duration: 128, input: "Verify access", output: "Credentials valid, scoped tokens issued",
+        securityInfo: { checks: [{ name: "Snowflake auth", result: "pass", detail: "OK" }, { name: "Sub-agent scope", result: "pass", detail: "Max 8 agents" }], findings: [] } },
+
+      // ── Iteration 1: Plan, query, spawn 3 ──
+      { id: "dt-011-03", nodeId: "orch", nodeLabel: "Opus 4.6 Orchestrator", nodeType: "model", status: "success", startedAt: "2026-02-13T06:00:01Z", duration: 168_000, input: "Iteration 1 — 89 categories, fresh start. Decide actions.", output: "Create 3 tasks, query historical data, spawn 3 sub-agents.", tokensInput: 38_000, tokensOutput: 16_000,
+        modelInfo: { provider: "Anthropic", model: "Claude Opus 4.6", tokens: 54_000, cost: 3.24 } },
+      { id: "dt-011-04", nodeId: "tool-tasks", nodeLabel: "manage_tasks", nodeType: "tool", status: "success", startedAt: "2026-02-13T06:02:49Z", duration: 700, input: "Create 3 tasks: Data Collection, Time Series, Market Signals", output: "3 tasks created, all pending",
+        toolInfo: { toolName: "Task Manager", endpoint: "POST /tasks/create", httpStatus: 200 } },
+      { id: "dt-011-05", nodeId: "tool-query", nodeLabel: "query_data", nodeType: "tool", status: "success", startedAt: "2026-02-13T06:02:50Z", duration: 12_600, input: "Query 2-year sales history", output: "831,000 data points loaded",
+        toolInfo: { toolName: "Snowflake", endpoint: "SELECT sales_history", httpStatus: 200 } },
+      { id: "dt-011-06", nodeId: "tool-spawn", nodeLabel: "spawn_agents", nodeType: "tool", status: "success", startedAt: "2026-02-13T06:03:03Z", duration: 1_100, input: "Spawn 3: Data Collection, Time Series, Market Signals", output: "3 agents launched",
+        toolInfo: { toolName: "Agent Spawner", endpoint: "POST /agents/spawn", httpStatus: 200 } },
+      { id: "dt-011-07", nodeId: "agents", nodeLabel: "Sub-Agents (3 spawned)", nodeType: "agent", status: "success", startedAt: "2026-02-13T06:03:04Z", duration: 468_000, input: "3 agents: data collection, time series, market signals", output: "All 3 done: 831K normalized, 89 models (6 regime changes), 1,180 signals (2 strong)" },
+
+      // ── Iteration 2: Merge, update tasks, spawn 2 more ──
+      { id: "dt-011-08", nodeId: "orch", nodeLabel: "Opus 4.6 Orchestrator", nodeType: "model", status: "success", startedAt: "2026-02-13T06:10:52Z", duration: 516_000, input: "Iteration 2 — 3 agents reported. Merge, resolve conflicts, decide next.", output: "3 conflicts resolved. Mark tasks done, create 2 new. Spawn 2 more agents.", tokensInput: 172_000, tokensOutput: 86_000,
+        modelInfo: { provider: "Anthropic", model: "Claude Opus 4.6", tokens: 258_000, cost: 15.48 } },
+      { id: "dt-011-09", nodeId: "tool-tasks", nodeLabel: "manage_tasks", nodeType: "tool", status: "success", startedAt: "2026-02-13T06:19:28Z", duration: 500, input: "Complete 3 tasks, create 2 new (Scenario Planning, Anomaly Detection)", output: "5 total tasks, 3 complete, 2 pending",
+        toolInfo: { toolName: "Task Manager", endpoint: "POST /tasks/batch", httpStatus: 200 } },
+      { id: "dt-011-10", nodeId: "tool-code", nodeLabel: "run_analysis", nodeType: "tool", status: "success", startedAt: "2026-02-13T06:19:29Z", duration: 84_000, input: "Cross-validate + enrich (freight, promos, lead times)", output: "MAPE 4.5%, 128 promos mapped",
+        toolInfo: { toolName: "Compute Cluster", endpoint: "POST /jobs/validate-and-enrich", httpStatus: 200 } },
+      { id: "dt-011-11", nodeId: "tool-spawn", nodeLabel: "spawn_agents", nodeType: "tool", status: "success", startedAt: "2026-02-13T06:20:53Z", duration: 900, input: "Spawn 2: Scenario Planning, Anomaly Detection", output: "2 agents launched",
+        toolInfo: { toolName: "Agent Spawner", endpoint: "POST /agents/spawn", httpStatus: 200 } },
+      { id: "dt-011-12", nodeId: "agents", nodeLabel: "Sub-Agents (2 spawned)", nodeType: "agent", status: "success", startedAt: "2026-02-13T06:20:54Z", duration: 576_000, input: "2 agents: scenario planning, anomaly detection", output: "267 scenarios generated, 2 anomalies corrected" },
+
+      // ── Iteration 3: Synthesize, no more agents ──
+      { id: "dt-011-13", nodeId: "orch", nodeLabel: "Opus 4.6 Orchestrator", nodeType: "model", status: "success", startedAt: "2026-02-13T06:30:30Z", duration: 756_000, input: "Iteration 3 — All sub-agents done. Synthesize or iterate?", output: "Sufficient. Run Monte Carlo, mark tasks done, exit loop.", tokensInput: 232_000, tokensOutput: 128_000,
+        modelInfo: { provider: "Anthropic", model: "Claude Opus 4.6", tokens: 360_000, cost: 21.60 } },
+      { id: "dt-011-14", nodeId: "tool-tasks", nodeLabel: "manage_tasks", nodeType: "tool", status: "success", startedAt: "2026-02-13T06:43:06Z", duration: 350, input: "Complete remaining 2 tasks. All 5/5 done.", output: "Task list: 5/5 complete",
+        toolInfo: { toolName: "Task Manager", endpoint: "POST /tasks/batch", httpStatus: 200 } },
+      { id: "dt-011-15", nodeId: "tool-code", nodeLabel: "run_analysis", nodeType: "tool", status: "success", startedAt: "2026-02-13T06:43:07Z", duration: 174_000, input: "Monte Carlo: 12K × 89 categories", output: "1,068,000 simulations. Confidence: 93.8%",
+        toolInfo: { toolName: "Compute Cluster (GPU)", endpoint: "POST /jobs/monte-carlo", httpStatus: 200 } },
+
+      // ── Exit ──
+      { id: "dt-011-16", nodeId: "s2", nodeLabel: "Output Guardrails", nodeType: "security", status: "success", startedAt: "2026-02-13T06:57:31Z", duration: 78, input: "Audit outputs", output: "Clean — 3 loops, 5 agents, 5 tasks",
+        securityInfo: { checks: [{ name: "Bounds check", result: "pass", detail: "Within 3σ" }, { name: "Lineage", result: "pass", detail: "3 loops, 5 agents, 5 tasks" }], findings: [] } },
+      { id: "dt-011-17", nodeId: "gate", nodeLabel: "Confidence ≥ 92%?", nodeType: "condition", status: "success", startedAt: "2026-02-13T06:57:32Z", duration: 4, input: "93.8% ≥ 92%", output: "Yes" },
+      { id: "dt-011-18", nodeId: "out-write", nodeLabel: "Write to Snowflake", nodeType: "action", status: "success", startedAt: "2026-02-13T06:57:32Z", duration: 131_792, input: "INSERT forecast matrices", output: "1,246 rows + intervals inserted",
         toolInfo: { toolName: "Snowflake", endpoint: "INSERT", httpStatus: 200 } },
+      { id: "dt-011-19", nodeId: "out-notify", nodeLabel: "Notify Slack", nodeType: "action", status: "success", startedAt: "2026-02-13T07:00:06Z", duration: 280, input: "Post summary", output: "93.8% confidence, 3 loops, 5 agents",
+        toolInfo: { toolName: "Slack", endpoint: "POST /chat.postMessage", httpStatus: 200 } },
     ],
   },
   // ── Price Optimization runs ──

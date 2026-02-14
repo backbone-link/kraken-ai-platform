@@ -493,7 +493,7 @@ const ChartsSection = ({ selectedAgentId }: { selectedAgentId: string | null }) 
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
             <XAxis dataKey="time" {...axisProps} />
             <YAxis {...axisProps} tickFormatter={(v: number) => formatNumber(v)} />
-            <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatNumber(Number(v))} />
+            <Tooltip {...tooltipStyle} formatter={(v: unknown) => formatNumber(Number(v))} cursor={{ fill: "rgba(255,255,255,0.06)" }} />
             <Bar dataKey="value" name="Input" fill="#e8622c" radius={[3, 3, 0, 0]} />
             <Bar dataKey="value2" name="Output" fill="#6b6b6b" radius={[3, 3, 0, 0]} />
           </BarChart>

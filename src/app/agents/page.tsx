@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import {
   agents,
-  agentStores,
+  agentMarketplaces,
   type AgentStatus,
   type IntegrationSource,
 } from "@/data/mock";
@@ -97,15 +97,15 @@ const SourceBadge = ({
   );
 };
 
-const formatStoreUrl = (url: string, maxLen = 24) => {
+const formatMarketplaceUrl = (url: string, maxLen = 24) => {
   const stripped = url.replace(/^https?:\/\//, "").replace(/^github\.com\//, "");
   if (stripped.length <= maxLen) return stripped;
   return stripped.slice(0, maxLen - 3) + "...";
 };
 
 const AgentsPage = () => {
-  const [storeUrl, setStoreUrl] = useState("");
-  const [storeUrlFocused, setStoreUrlFocused] = useState(false);
+  const [marketplaceUrl, setMarketplaceUrl] = useState("");
+  const [marketplaceUrlFocused, setMarketplaceUrlFocused] = useState(false);
 
   return (
     <div>
@@ -120,18 +120,13 @@ const AgentsPage = () => {
         }
       />
 
-      {/* Agent Stores */}
+      {/* Agent Marketplaces */}
       <div className="bg-bg-secondary border border-border-subtle rounded-xl mb-6 overflow-hidden">
-        <div className="px-5 py-4">
-          <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider">
-            Agent Stores
-          </p>
-        </div>
         <table className="w-full">
           <thead>
-            <tr className="border-t border-border-subtle">
+            <tr>
               <th className="text-left text-[11px] font-mono font-medium text-text-muted uppercase tracking-wider px-5 py-2.5">
-                Store
+                Marketplace
               </th>
               <th className="text-right text-[11px] font-mono font-medium text-text-muted uppercase tracking-wider px-5 py-2.5">
                 Agents
@@ -148,57 +143,57 @@ const AgentsPage = () => {
             </tr>
           </thead>
           <tbody>
-            {agentStores.map((store) => (
+            {agentMarketplaces.map((marketplace) => (
                 <tr
-                  key={store.id}
+                  key={marketplace.id}
                   className="border-t border-border-subtle hover:bg-white/[0.02] transition-colors group"
                 >
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-[13px] text-text-primary">
-                        {store.name}
+                        {marketplace.name}
                       </span>
                       <span
                         className={cn(
                           "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded",
-                          store.source === "kraken"
+                          marketplace.source === "kraken"
                             ? "text-accent/80 bg-accent/8"
                             : "text-text-muted bg-white/[0.06]"
                         )}
                       >
-                        {sourceConfig[store.source].label}
+                        {sourceConfig[marketplace.source].label}
                       </span>
                     </div>
                     <a
-                      href={store.url}
+                      href={marketplace.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-[10px] font-mono text-text-muted/70 hover:text-text-secondary mt-0.5 truncate max-w-[240px] transition-colors"
-                      title={store.url}
+                      title={marketplace.url}
                     >
                       <Github size={10} className="shrink-0" />
-                      {formatStoreUrl(store.url)}
+                      {formatMarketplaceUrl(marketplace.url)}
                     </a>
                   </td>
                   <td className="px-5 py-3 text-right text-[12px] font-mono text-text-secondary">
-                    {store.agentCount}
+                    {marketplace.agentCount}
                   </td>
                   <td className="px-5 py-3 text-right text-[12px] font-mono text-text-secondary">
-                    {store.installedCount}
+                    {marketplace.installedCount}
                   </td>
                   <td className="px-5 py-3 text-[12px] font-mono text-text-secondary">
-                    {store.version}
+                    {marketplace.version}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    {store.source === "kraken" ? (
+                    {marketplace.source === "kraken" ? (
                       <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-text-muted">
                         <RefreshCw size={10} />
                         Auto
                       </span>
-                    ) : store.updateAvailable ? (
+                    ) : marketplace.updateAvailable ? (
                       <button className="inline-flex items-center gap-1.5 text-[11px] font-mono text-accent hover:text-accent/80 transition-colors">
                         <ArrowUpCircle size={10} />
-                        {store.updateAvailable} available
+                        {marketplace.updateAvailable} available
                       </button>
                     ) : (
                       <span className="text-[11px] font-mono text-text-muted">
@@ -211,23 +206,23 @@ const AgentsPage = () => {
           </tbody>
         </table>
 
-        {/* Add store */}
+        {/* Add marketplace */}
         <div className="px-5 py-3 border-t border-border-subtle">
           <div className="flex items-center gap-3">
             <GitBranch size={13} className="text-text-muted shrink-0" />
             <div
               className={cn(
                 "flex items-center gap-2 flex-1 bg-bg-primary border rounded-md px-2.5 py-1.5 transition-colors",
-                storeUrlFocused ? "border-accent/40" : "border-border-subtle"
+                marketplaceUrlFocused ? "border-accent/40" : "border-border-subtle"
               )}
             >
               <LinkIcon size={10} className="text-text-muted shrink-0" />
               <input
                 type="text"
-                value={storeUrl}
-                onChange={(e) => setStoreUrl(e.target.value)}
-                onFocus={() => setStoreUrlFocused(true)}
-                onBlur={() => setStoreUrlFocused(false)}
+                value={marketplaceUrl}
+                onChange={(e) => setMarketplaceUrl(e.target.value)}
+                onFocus={() => setMarketplaceUrlFocused(true)}
+                onBlur={() => setMarketplaceUrlFocused(false)}
                 placeholder="github.com/org/kraken-agents"
                 className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/60 focus:outline-none w-full font-mono"
               />
@@ -235,7 +230,7 @@ const AgentsPage = () => {
             <button
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors shrink-0",
-                storeUrl.length > 0
+                marketplaceUrl.length > 0
                   ? "bg-accent hover:bg-accent-hover text-white"
                   : "bg-white/[0.04] text-text-muted"
               )}
@@ -247,6 +242,9 @@ const AgentsPage = () => {
         </div>
       </div>
 
+      <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider mb-3">
+        Agents
+      </p>
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {agents.map((agent) => {
           const status = statusConfig[agent.status];
