@@ -44,7 +44,11 @@ export const useExecutionSimulation = ({
   stepIntervalMs = 1800,
   getStepDuration,
 }: UseExecutionSimulationOptions) => {
-  const [progress, setProgress] = useState<ExecutionProgress>(INITIAL_STATE);
+  const [progress, setProgress] = useState<ExecutionProgress>(() =>
+    autoStart && steps.length > 0
+      ? { ...INITIAL_STATE, isRunning: true, runId }
+      : INITIAL_STATE
+  );
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepIndexRef = useRef(-1);
 
@@ -54,9 +58,7 @@ export const useExecutionSimulation = ({
     [edges]
   );
 
-  const scheduleNext = useCallback((delay: number, advanceFn: () => void) => {
-    timeoutRef.current = setTimeout(advanceFn, delay);
-  }, []);
+  const advanceStepRef = useRef<() => void>(() => {});
 
   const advanceStep = useCallback(() => {
     const nextIndex = stepIndexRef.current + 1;
@@ -115,14 +117,18 @@ export const useExecutionSimulation = ({
     const duration = getStepDuration
       ? getStepDuration(currentStep, nextIndex)
       : stepIntervalMs;
-    scheduleNext(duration, advanceStep);
-  }, [steps, runId, findEdgeBetween, stepIntervalMs, getStepDuration, scheduleNext]);
+    timeoutRef.current = setTimeout(() => advanceStepRef.current(), duration);
+  }, [steps, runId, findEdgeBetween, stepIntervalMs, getStepDuration]);
+
+  useEffect(() => {
+    advanceStepRef.current = advanceStep;
+  }, [advanceStep]);
 
   const start = useCallback(() => {
     stepIndexRef.current = -1;
     setProgress({ ...INITIAL_STATE, isRunning: true, runId });
-    advanceStep();
-  }, [advanceStep, runId]);
+    advanceStepRef.current();
+  }, [runId]);
 
   const stop = useCallback(() => {
     if (timeoutRef.current) {
@@ -140,14 +146,15 @@ export const useExecutionSimulation = ({
 
   useEffect(() => {
     if (autoStart && steps.length > 0) {
-      start();
+      stepIndexRef.current = -1;
+      timeoutRef.current = setTimeout(() => advanceStepRef.current(), 0);
     }
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, []);
+  }, [autoStart, steps.length]);
 
   return { progress, start, stop, reset };
 };

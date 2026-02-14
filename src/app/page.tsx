@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback, Suspense } from "react";
+import { useState, useMemo, useCallback, Suspense } from "react";
 import {
   AreaChart,
   Area,
@@ -1122,41 +1122,29 @@ const AuditLogTab = ({ selectedAgentId }: { selectedAgentId: string | null }) =>
 
 const ObservabilityPage = () => {
   const searchParams = useSearchParams();
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
-  const [activeBottomTab, setActiveBottomTab] = useState<"runs" | "audit">("runs");
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
-  const [killTargetId, setKillTargetId] = useState<string | null>(null);
-  const [highlightedStepId, setHighlightedStepId] = useState<string | null>(null);
-  const deepLinked = useRef(false);
 
-  useEffect(() => {
-    if (deepLinked.current) return;
+  const deepLink = useMemo(() => {
     const runId = searchParams.get("runId");
     const stepId = searchParams.get("stepId");
-    if (!runId) return;
-
+    if (!runId) return null;
     const run = detailedAgentRuns.find((r) => r.id === runId);
-    if (!run) return;
-
-    deepLinked.current = true;
-    setSelectedAgentId(run.agentId);
-    setSelectedRunId(run.id);
-    setActiveBottomTab("runs");
-
+    if (!run) return null;
     const stepsToExpand = new Set<string>();
     for (const step of run.traceSteps) {
       if (step.status === "running" || step.id === stepId) {
         stepsToExpand.add(step.id);
       }
     }
-    setExpandedSteps(stepsToExpand);
-
-    if (stepId) {
-      setHighlightedStepId(stepId);
-    }
+    return { agentId: run.agentId, runId: run.id, expandedSteps: stepsToExpand, highlightedStepId: stepId };
   }, [searchParams]);
+
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(deepLink?.agentId ?? null);
+  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
+  const [activeBottomTab, setActiveBottomTab] = useState<"runs" | "audit">("runs");
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(deepLink?.runId ?? null);
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(deepLink?.expandedSteps ?? new Set());
+  const [killTargetId, setKillTargetId] = useState<string | null>(null);
+  const [highlightedStepId, setHighlightedStepId] = useState<string | null>(deepLink?.highlightedStepId ?? null);
 
   const killTarget = killTargetId ? agents.find((a) => a.id === killTargetId) ?? null : null;
 

@@ -945,7 +945,7 @@ const AgentDetailPage = () => {
 
   const shouldShowExecution = isRunning && activeTab === "builder";
 
-  const rfNodes: Node[] = useMemo(() => {
+  const rfNodes: Node[] = (() => {
     if (!flow) return [];
     return flow.nodes.map((n) => {
       const execState: NodeExecutionState = shouldShowExecution
@@ -981,9 +981,9 @@ const AgentDetailPage = () => {
         type: n.type === "model" ? "modelNode" : n.type === "tool" ? "toolNode" : "custom",
       };
     });
-  }, [flow, shouldShowExecution, progress, simulationSteps, simulationRun]);
+  })();
 
-  const rfEdges: Edge[] = useMemo(() => {
+  const rfEdges: Edge[] = (() => {
     if (!flow) return [];
     return flow.edges.map((e) => {
       const isToolCall = e.label === "tool call";
@@ -1035,7 +1035,7 @@ const AgentDetailPage = () => {
         markerEnd: isKill ? { type: MarkerType.ArrowClosed, color: "#ef4444" } : undefined,
       };
     });
-  }, [flow, shouldShowExecution, progress]);
+  })();
 
   const [nodeDimensions, setNodeDimensions] = useState<Record<string, { width: number; height: number }>>({});
   const [addedNodes, setAddedNodes] = useState<Node[]>([]);
@@ -1082,16 +1082,12 @@ const AgentDetailPage = () => {
     });
   }, []);
 
-  const displayNodes = useMemo(
-    () =>
-      rfNodes.map((node) => {
-        const dims = nodeDimensions[node.id];
-        return dims ? { ...node, measured: dims } : node;
-      }),
-    [rfNodes, nodeDimensions],
-  );
+  const displayNodes = rfNodes.map((node) => {
+    const dims = nodeDimensions[node.id];
+    return dims ? { ...node, measured: dims } : node;
+  });
 
-  const allNodes = useMemo(() => {
+  const allNodes = (() => {
     const annotated = addedNodes.map((n) => {
       const config = nodeConfigs[n.id];
       const defaultLabel = n.data.label as string;
@@ -1104,12 +1100,9 @@ const AgentDetailPage = () => {
       };
     });
     return [...displayNodes, ...annotated];
-  }, [displayNodes, addedNodes, nodeConfigs]);
+  })();
 
-  const allEdges = useMemo(
-    () => [...rfEdges, ...addedEdges],
-    [rfEdges, addedEdges]
-  );
+  const allEdges = [...rfEdges, ...addedEdges];
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
     setRfInstance(instance);
