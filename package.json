@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.6.1",
     "@xyflow/react": "^12.10.0",
     "lucide-react": "^0.564.0",
     "motion": "^12.34.0",

@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next"
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Instrument_Serif } from "next/font/google";
@@ -40,6 +41,7 @@ const RootLayout = ({
       <main className="ml-[240px] min-h-screen">
         <div className="max-w-[1400px] mx-auto px-8 py-8">{children}</div>
       </main>
+      <Analytics />
     </body>
   </html>
 );
