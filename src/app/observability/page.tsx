@@ -26,10 +26,12 @@ import {
   detailedAgentRuns,
   detailedAuditTrail,
   agentTimeSeries,
+  subAgentRuns,
   type DetailedAgentRun,
   type DetailedTraceStep,
   type DetailedAuditEntry,
   type AuditCategory,
+  type SubAgentRun,
 } from "@/data/mock";
 import {
   formatNumber,
@@ -581,6 +583,66 @@ const RunRow = ({
   );
 };
 
+// --- Sub-Agent Row ---
+
+const subAgentStatusMap: Record<string, keyof typeof statusIcons> = {
+  completed: "success",
+  failed: "error",
+  running: "running",
+  pending: "pending",
+};
+
+const roleBadgeColor: Record<string, string> = {
+  task: "bg-accent/10 text-accent",
+  "swarm-lead": "bg-violet-500/10 text-violet-400",
+  "swarm-worker": "bg-cyan-500/10 text-cyan-400",
+};
+
+const SubAgentRow = ({ subRun }: { subRun: SubAgentRun }) => {
+  const mappedStatus = subAgentStatusMap[subRun.status] ?? "pending";
+  const Icon = statusIcons[mappedStatus];
+
+  return (
+    <div className="ml-6 border-l-2 border-l-accent/30">
+      <div className="flex items-center gap-3 px-4 py-2.5 opacity-90 hover:bg-white/[0.03] transition-colors">
+        <Icon
+          size={12}
+          className={cn(
+            "shrink-0",
+            statusColors[mappedStatus],
+            subRun.status === "running" && "animate-spin",
+          )}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-text-primary font-medium truncate">
+              {subRun.agentName}
+            </span>
+            <span className={cn(
+              "text-[9px] font-mono px-1.5 py-0.5 rounded",
+              roleBadgeColor[subRun.role] ?? "bg-accent/10 text-accent",
+            )}>
+              {subRun.role}
+            </span>
+          </div>
+          <span className="text-[10px] font-mono text-text-muted">
+            {timeAgo(subRun.startedAt)}
+          </span>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-[10px] font-mono text-text-secondary">
+            {subRun.duration > 0 ? formatDuration(subRun.duration) : "\u2014"}
+          </div>
+          <div className="text-[9px] font-mono text-text-muted">
+            {subRun.tokensUsed > 0 ? formatTokens(subRun.tokensUsed) : "\u2014"}
+            {subRun.cost > 0 ? ` \u00b7 ${formatCurrency(subRun.cost)}` : ""}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Trace Step Row ---
 
 const TraceStepRow = ({
@@ -984,14 +1046,21 @@ const RunsAndTracesTab = ({
           {filteredRuns.length === 0 ? (
             <div className="p-5 text-[12px] text-text-muted">No runs found.</div>
           ) : (
-            filteredRuns.map((run) => (
-              <RunRow
-                key={run.id}
-                run={run}
-                isSelected={selectedRunId === run.id}
-                onSelect={() => onSelectRun(selectedRunId === run.id ? null : run.id)}
-              />
-            ))
+            filteredRuns.map((run) => {
+              const childRuns = subAgentRuns.filter((s) => s.parentRunId === run.id);
+              return (
+                <div key={run.id}>
+                  <RunRow
+                    run={run}
+                    isSelected={selectedRunId === run.id}
+                    onSelect={() => onSelectRun(selectedRunId === run.id ? null : run.id)}
+                  />
+                  {childRuns.map((child) => (
+                    <SubAgentRow key={child.id} subRun={child} />
+                  ))}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
@@ -1175,16 +1244,16 @@ const ObservabilityPage = () => {
               <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-                className="appearance-none bg-bg-tertiary border border-border-subtle rounded-lg pl-3.5 pr-8 py-2 text-[13px] text-text-secondary font-medium hover:border-border-default transition-colors focus:outline-none focus:border-accent/40 cursor-pointer"
+                className="appearance-none bg-bg-tertiary border border-border-subtle rounded-md pl-2.5 pr-7 py-1.5 text-[11px] text-text-secondary font-medium hover:border-border-default transition-colors focus:outline-none focus:border-accent/40 cursor-pointer"
               >
                 {timeRanges.map((r) => (
                   <option key={r} value={r}>Last {r}</option>
                 ))}
               </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
             </div>
-            <button className="flex items-center gap-1.5 bg-bg-tertiary border border-border-subtle rounded-lg px-3.5 py-2 text-[13px] text-text-secondary font-medium hover:border-border-default transition-colors">
-              <Download size={14} />
+            <button className="flex items-center gap-1.5 bg-bg-tertiary border border-border-subtle rounded-md px-3 py-1.5 text-[11px] text-text-secondary font-medium hover:border-border-default transition-colors">
+              <Download size={12} />
               Export
             </button>
           </div>

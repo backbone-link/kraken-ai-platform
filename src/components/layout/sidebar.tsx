@@ -14,6 +14,7 @@ import {
   BarChart3,
   MessageSquare,
   ArrowUpCircle,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -31,6 +32,7 @@ const mainNav = [
 
 const systemNav = [
   { href: "/integrations", label: "Integrations", icon: Cable },
+  { href: "/governance", label: "Governance", icon: Shield },
   { href: "/settings", label: "Settings", icon: SlidersHorizontal },
 ];
 
@@ -90,6 +92,11 @@ export const Sidebar = () => {
         className="shrink-0"
       />
       <span>{item.label}</span>
+      {"badge" in item && item.badge && (
+        <span className="ml-auto font-mono text-[9px] font-medium uppercase tracking-[0.08em] text-accent/70 bg-accent/[0.08] px-1.5 py-[1px] rounded">
+          {item.badge}
+        </span>
+      )}
     </Link>
   );
 

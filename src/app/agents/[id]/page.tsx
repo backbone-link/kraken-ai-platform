@@ -21,8 +21,8 @@ import {
   Position,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { agents, agentFlows, detailedAgentRuns, agentConfigs, accounts, jitGrants } from "@/data/mock";
-import type { TraceStep, IntegrationSource, JitStatus, JitPolicy } from "@/data/mock";
+import { agents, agentFlows, detailedAgentRuns, agentConfigs, accounts, jitGrants, subAgentRuns, swarmExecutions, recentRuns, memoryInstances } from "@/data/mock";
+import type { TraceStep, IntegrationSource, JitPolicy, SubAgentRun, SwarmExecution, RecursionConfig, MemoryInstance } from "@/data/mock";
 import type { AgentConfig } from "@/data/mock";
 import { AgentConfigPanel } from "@/components/agent-config-panel";
 import {
@@ -55,10 +55,15 @@ import {
   LockOpen,
   RefreshCw,
   Check,
+  Loader2,
+  Users,
+  Database,
+  ExternalLink,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { cn, formatDuration } from "@/lib/utils";
+import { cn, formatDuration, formatTokens, primaryBtnClass } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import {
   useExecutionSimulation,
@@ -921,7 +926,7 @@ const AgentDetailPage = () => {
   );
   const latestRun = agentRuns[0];
 
-  const [activeTab, setActiveTab] = useState<"builder" | "runs" | "identity">("builder");
+  const [activeTab, setActiveTab] = useState<"builder" | "runs" | "identity" | "memory" | "swarm">("builder");
 
   const isRunning = agent.status === "running";
   const simulationRun = agentRuns[0];
@@ -1189,16 +1194,18 @@ const AgentDetailPage = () => {
 
   return (
     <div>
+      {/* Breadcrumb */}
+      <Link
+        href="/agents"
+        className="inline-flex items-center gap-1.5 text-[12px] text-text-muted hover:text-text-secondary transition-colors mb-4"
+      >
+        <ArrowLeft size={13} />
+        Agents
+      </Link>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/agents"
-            className="text-text-muted hover:text-text-secondary transition-colors"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
             <h1 className="text-[20px] font-medium text-text-primary">
               {agent.name}
             </h1>
@@ -1225,7 +1232,6 @@ const AgentDetailPage = () => {
               source={agent.source}
               detail={agent.sourceDetail}
             />
-          </div>
         </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 border border-red-500/30 text-red-400 rounded-lg px-3.5 py-1.5 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/50 transition-colors">
@@ -1236,7 +1242,7 @@ const AgentDetailPage = () => {
             <FlaskConical size={14} />
             Dry Run
           </button>
-          <button className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-colors">
+          <button className={cn("flex items-center gap-2 rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}>
             <Play size={14} />
             Run Now
           </button>
@@ -1280,6 +1286,28 @@ const AgentDetailPage = () => {
           )}
         >
           Identity
+        </button>
+        <button
+          onClick={() => setActiveTab("memory")}
+          className={cn(
+            "text-[13px] font-medium pb-2.5 -mb-px transition-colors",
+            activeTab === "memory"
+              ? "text-text-primary border-b-2 border-accent"
+              : "text-text-muted hover:text-text-secondary"
+          )}
+        >
+          Memory
+        </button>
+        <button
+          onClick={() => setActiveTab("swarm")}
+          className={cn(
+            "text-[13px] font-medium pb-2.5 -mb-px transition-colors",
+            activeTab === "swarm"
+              ? "text-text-primary border-b-2 border-accent"
+              : "text-text-muted hover:text-text-secondary"
+          )}
+        >
+          Swarm
         </button>
       </div>
 
@@ -1498,6 +1526,16 @@ const AgentDetailPage = () => {
                 </div>
               </div>
 
+              {/* Sub-tasks */}
+              {(() => {
+                const runSubAgents = subAgentRuns.filter(
+                  (s) => s.parentRunId === latestRun.id ||
+                    recentRuns.some((r) => r.agentId === agent.id && r.id === s.parentRunId)
+                );
+                if (runSubAgents.length === 0) return null;
+                return <SubTasksSection subAgents={runSubAgents} />;
+              })()}
+
               {/* Run History */}
               <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
                 <h3 className="text-[13px] font-medium text-text-primary mb-4">
@@ -1550,19 +1588,461 @@ const AgentDetailPage = () => {
       {activeTab === "identity" && (
         <AgentIdentityTab agentId={agent.id} />
       )}
+
+      {/* Memory Tab */}
+      {activeTab === "memory" && (
+        <AttachedMemorySection agentId={agent.id} />
+      )}
+
+      {/* Swarm Tab */}
+      {activeTab === "swarm" && (
+        agentConfigs[agent.id]?.recursion?.enabled ? (
+          <SwarmTab agentId={agent.id} recursionConfig={agentConfigs[agent.id]!.recursion!} />
+        ) : (
+          <div className="bg-bg-secondary border border-border-subtle rounded-xl p-8 text-center">
+            <Users size={24} className="text-text-muted mx-auto mb-3" />
+            <p className="text-[13px] text-text-muted mb-4">
+              Swarm capability is not enabled for this agent.
+            </p>
+            <button className={cn("rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}>
+              Enable
+            </button>
+          </div>
+        )
+      )}
+    </div>
+  );
+};
+
+// ─── Sub-tasks Section (Runs Tab) ───
+
+const subAgentStatusIndicator = (status: SubAgentRun["status"]) => {
+  switch (status) {
+    case "completed":
+      return <CheckCircle2 size={14} className="text-success shrink-0" />;
+    case "failed":
+      return <XCircle size={14} className="text-error shrink-0" />;
+    case "running":
+      return <span className="w-2.5 h-2.5 rounded-full bg-accent animate-gentle-pulse shrink-0" />;
+    case "pending":
+      return <span className="w-2.5 h-2.5 rounded-full bg-text-muted shrink-0" />;
+  }
+};
+
+const roleBadgeClass = (role: SubAgentRun["role"]) => {
+  switch (role) {
+    case "task":
+      return "bg-sky-400/10 text-sky-400";
+    case "swarm-lead":
+      return "bg-accent/10 text-accent";
+    case "swarm-worker":
+      return "bg-purple-400/10 text-purple-400";
+  }
+};
+
+const SubTasksSection = ({ subAgents }: { subAgents: SubAgentRun[] }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between"
+      >
+        <div className="flex items-center gap-2.5">
+          <GitFork size={14} className="text-accent" />
+          <h3 className="text-[13px] font-medium text-text-primary">
+            Sub-tasks
+          </h3>
+          <span className="text-[11px] font-mono text-text-muted">
+            {subAgents.length} worker{subAgents.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+        {expanded ? (
+          <ChevronDown size={14} className="text-text-muted" />
+        ) : (
+          <ChevronRight size={14} className="text-text-muted" />
+        )}
+      </button>
+      {expanded && (
+        <div className="mt-4 space-y-2">
+          {subAgents.map((sa) => (
+            <div
+              key={sa.id}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-bg-primary border border-border-subtle"
+            >
+              {subAgentStatusIndicator(sa.status)}
+              <span className="text-[12px] text-text-primary flex-1 font-medium">
+                {sa.agentName}
+              </span>
+              <span className={cn(
+                "text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded",
+                roleBadgeClass(sa.role)
+              )}>
+                {sa.role.toUpperCase()}
+              </span>
+              <span className="text-[11px] font-mono text-text-muted w-16 text-right">
+                {formatDuration(sa.duration)}
+              </span>
+              <span className="text-[11px] font-mono text-text-muted">
+                {sa.tokensUsed.toLocaleString()} tokens
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Swarm Tab ───
+
+const SwarmTab = ({ agentId, recursionConfig }: { agentId: string; recursionConfig: RecursionConfig }) => {
+  const agentSwarmExecutions = swarmExecutions.filter((te) => te.leadAgentId === agentId);
+  const agentRunIds = new Set(recentRuns.filter((r) => r.agentId === agentId).map((r) => r.id));
+  const agentSubRuns = subAgentRuns.filter((s) => agentRunIds.has(s.parentRunId));
+
+  return (
+    <div className="space-y-6">
+      {/* Swarm Configuration */}
+      <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-6">
+        <h3 className="text-[13px] font-medium text-text-primary mb-5">
+          Swarm Configuration
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
+              Mode
+            </div>
+            <div className="text-[14px] text-text-primary font-mono">
+              {recursionConfig.mode}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
+              Max Workers
+            </div>
+            <div className="text-[14px] text-text-primary font-mono">
+              {recursionConfig.maxConcurrentWorkers}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
+              Token Budget / Worker
+            </div>
+            <div className="text-[14px] text-text-primary font-mono">
+              {(recursionConfig.maxTokenBudgetPerWorker / 1_000).toFixed(0)}k
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">
+              Timeout / Worker
+            </div>
+            <div className="text-[14px] text-text-primary font-mono">
+              {recursionConfig.maxDurationPerWorker}s
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-3">
+            Allowed Worker Agents
+          </div>
+          <div className="space-y-2">
+            {agents.map((a) => {
+              const isAllowed = recursionConfig.allowedWorkerAgentIds.includes(a.id);
+              return (
+                <div
+                  key={a.id}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg border",
+                    isAllowed
+                      ? "border-border-subtle bg-white/[0.03]"
+                      : "border-transparent opacity-40"
+                  )}
+                >
+                  <div className={cn(
+                    "w-4 h-4 rounded border flex items-center justify-center",
+                    isAllowed
+                      ? "border-accent bg-accent/20"
+                      : "border-border-subtle bg-white/[0.02]"
+                  )}>
+                    {isAllowed && <Check size={10} className="text-accent" />}
+                  </div>
+                  <span className="text-[12px] text-text-primary">{a.name}</span>
+                  <span className="text-[10px] font-mono text-text-muted">{a.id}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Swarm Executions */}
+      <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-6">
+        <div className="flex items-center gap-2.5 mb-5">
+          <Users size={14} className="text-accent" />
+          <h3 className="text-[13px] font-medium text-text-primary">
+            Recent Swarm Executions
+          </h3>
+        </div>
+
+        {agentSwarmExecutions.length === 0 && agentSubRuns.length === 0 ? (
+          <p className="text-[13px] text-text-muted text-center py-4">
+            No swarm executions recorded.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {agentSwarmExecutions.map((te) => (
+              <SwarmExecutionRow key={te.id} execution={te} />
+            ))}
+            {agentSubRuns.length > 0 && agentSwarmExecutions.length === 0 && (
+              <div className="space-y-2">
+                {agentSubRuns.map((sa) => (
+                  <div
+                    key={sa.id}
+                    className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-bg-primary border border-border-subtle"
+                  >
+                    {subAgentStatusIndicator(sa.status)}
+                    <span className="text-[12px] text-text-primary flex-1 font-medium">
+                      {sa.agentName}
+                    </span>
+                    <span className={cn(
+                      "text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded",
+                      roleBadgeClass(sa.role)
+                    )}>
+                      {sa.role.toUpperCase()}
+                    </span>
+                    <span className="text-[11px] font-mono text-text-muted">
+                      {formatDuration(sa.duration)}
+                    </span>
+                    <span className="text-[11px] font-mono text-text-muted">
+                      {sa.tokensUsed.toLocaleString()} tokens
+                    </span>
+                    <span className="text-[11px] font-mono text-text-muted">
+                      ${sa.cost.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const swarmExecStatusChip = (status: SwarmExecution["status"]) => {
+  switch (status) {
+    case "completed":
+      return (
+        <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-success/10 text-success">
+          <CheckCircle2 size={10} />
+          COMPLETED
+        </span>
+      );
+    case "active":
+      return (
+        <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-accent/10 text-accent">
+          <Loader2 size={10} className="animate-spin" />
+          ACTIVE
+        </span>
+      );
+    case "failed":
+      return (
+        <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 rounded bg-error/10 text-error">
+          <XCircle size={10} />
+          FAILED
+        </span>
+      );
+  }
+};
+
+const SwarmExecutionRow = ({ execution }: { execution: SwarmExecution }) => {
+  const [expanded, setExpanded] = useState(false);
+  const workers = subAgentRuns.filter((s) => s.parentRunId === execution.parentRunId);
+
+  return (
+    <div className="rounded-lg border border-border-subtle bg-bg-primary overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-white/[0.03] transition-colors text-left"
+      >
+        {expanded ? (
+          <ChevronDown size={14} className="text-text-muted shrink-0" />
+        ) : (
+          <ChevronRight size={14} className="text-text-muted shrink-0" />
+        )}
+        <span className="text-[11px] font-mono text-text-secondary">
+          {execution.parentRunId}
+        </span>
+        <span className="text-[11px] font-mono text-text-muted">
+          {execution.workerAgentIds.length} worker{execution.workerAgentIds.length !== 1 ? "s" : ""}
+        </span>
+        <span className="flex-1" />
+        <span className="text-[10px] font-mono text-text-muted">
+          {formatTokens(execution.totalTokens)} tokens · ${execution.totalCost.toFixed(2)}
+        </span>
+        {swarmExecStatusChip(execution.status)}
+        <span className="text-[11px] font-mono text-text-muted">
+          {formatDuration(execution.duration)}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-border-subtle px-4 py-4 space-y-4">
+          {/* Workers */}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-2">
+              Workers
+            </div>
+            <div className="space-y-1.5">
+              {workers.map((w) => (
+                <div
+                  key={w.id}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-secondary border border-border-subtle"
+                >
+                  {subAgentStatusIndicator(w.status)}
+                  <span className="text-[12px] text-text-primary flex-1 font-medium">
+                    {w.agentName}
+                  </span>
+                  <span className={cn(
+                    "text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded",
+                    roleBadgeClass(w.role)
+                  )}>
+                    {w.role.toUpperCase()}
+                  </span>
+                  <span className="text-[11px] font-mono text-text-muted">
+                    {formatDuration(w.duration)}
+                  </span>
+                  <span className="text-[11px] font-mono text-text-muted">
+                    {formatTokens(w.tokensUsed)} tokens · ${w.cost.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+              {workers.length === 0 && (
+                <p className="text-[12px] text-text-muted px-3 py-2">No worker runs recorded.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Task List */}
+          {execution.taskList.length > 0 && (
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-2">
+                Tasks
+              </div>
+              <div className="space-y-1.5">
+                {execution.taskList.map((task) => {
+                  const assignedAgent = task.assignedTo
+                    ? agents.find((a) => a.id === task.assignedTo)
+                    : null;
+                  return (
+                    <div
+                      key={task.id}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-secondary border border-border-subtle"
+                    >
+                      {task.status === "completed" ? (
+                        <CheckCircle2 size={12} className="text-success shrink-0" />
+                      ) : task.status === "in_progress" ? (
+                        <span className="w-2.5 h-2.5 rounded-full bg-accent animate-gentle-pulse shrink-0" />
+                      ) : (
+                        <span className="w-2.5 h-2.5 rounded-full bg-text-muted shrink-0" />
+                      )}
+                      <span className="text-[12px] text-text-primary flex-1">
+                        {task.subject}
+                      </span>
+                      {assignedAgent && (
+                        <span className="text-[10px] font-mono text-text-muted">
+                          {assignedAgent.name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Messages */}
+          {execution.messages.length > 0 && (
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-2">
+                Messages
+              </div>
+              <div className="space-y-2 max-h-[320px] overflow-y-auto">
+                {execution.messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className="px-3 py-2 rounded-lg bg-bg-secondary border border-border-subtle"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Bot size={11} className="text-accent shrink-0" />
+                      <span className="text-[11px] font-medium text-text-primary">
+                        {msg.fromAgentName}
+                      </span>
+                      {msg.toAgentId && (
+                        <>
+                          <span className="text-[10px] text-text-muted">→</span>
+                          <span className="text-[10px] font-mono text-text-muted">
+                            {agents.find((a) => a.id === msg.toAgentId)?.name ?? msg.toAgentId}
+                          </span>
+                        </>
+                      )}
+                      <span className="flex-1" />
+                      <span className="text-[10px] font-mono text-text-muted">
+                        {new Date(msg.timestamp).toLocaleTimeString("en-US", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                          hour12: false,
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-text-secondary leading-relaxed">
+                      {msg.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Summary */}
+          <div className="flex items-center gap-6 pt-2 border-t border-border-subtle">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-0.5">
+                Total Tokens
+              </div>
+              <div className="text-[13px] font-mono text-text-primary">
+                {execution.totalTokens.toLocaleString()}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-0.5">
+                Total Cost
+              </div>
+              <div className="text-[13px] font-mono text-text-primary">
+                ${execution.totalCost.toFixed(2)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-0.5">
+                Duration
+              </div>
+              <div className="text-[13px] font-mono text-text-primary">
+                {formatDuration(execution.duration)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 // ─── Identity Tab ───
-
-const jitStatusColors: Record<JitStatus, string> = {
-  active: "bg-emerald-400/15 text-emerald-400",
-  "pending-approval": "bg-amber-400/15 text-amber-400",
-  expired: "bg-bg-tertiary text-text-muted",
-  revoked: "bg-red-400/15 text-red-400",
-  denied: "bg-red-400/15 text-red-400",
-};
 
 const permColor = (perm: string) => {
   const colors: Record<string, string> = {
@@ -1574,6 +2054,21 @@ const permColor = (perm: string) => {
   };
   return colors[perm.split(":")[0]] ?? "text-text-muted bg-bg-tertiary";
 };
+
+const PolicyTag = ({ name }: { name: string }) => (
+  <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-purple-400/10 text-purple-400">
+    {name}
+  </span>
+);
+
+const formatTimestamp = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 
 const allBasePermissions = [
   "data:read", "data:write",
@@ -1879,122 +2374,272 @@ const AgentIdentityTab = ({ agentId }: { agentId: string }) => {
         </AnimatePresence>
       </div>
 
-      {/* ── Activity ── */}
+      {/* ── JIT Elevation Activity ── */}
 
-      {/* Active Grants */}
+      {/* Active Elevations */}
       {activeGrants.length > 0 && (
         <div>
-          <h3 className="text-[13px] font-medium text-text-primary mb-3">
-            Active Grants
-          </h3>
+          <div className="mb-3">
+            <h3 className="text-[13px] font-medium text-text-primary">
+              Active Elevations
+            </h3>
+            <p className="text-[11px] text-text-muted mt-0.5">
+              Temporary permissions above this agent&apos;s base level
+            </p>
+          </div>
           <div className="space-y-2">
             {activeGrants.map((g) => (
               <div
                 key={g.id}
                 className={cn(
-                  "bg-bg-secondary border border-border-subtle rounded-xl px-5 py-3.5 border-l-[3px]",
+                  "bg-bg-secondary border border-border-subtle rounded-xl px-5 py-4 border-l-[3px]",
                   g.status === "active"
                     ? "border-l-emerald-400"
                     : "border-l-amber-400"
                 )}
               >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2">
-                    {g.permissions.map((p) => (
+                <div className="space-y-1.5 mb-3">
+                  {g.permissions.map((p) => (
+                    <div key={p} className="flex items-center gap-2">
                       <span
-                        key={p}
                         className={cn(
-                          "text-[10px] font-mono px-2 py-0.5 rounded",
+                          "text-[10px] font-mono px-2 py-0.5 rounded shrink-0",
                           permColor(p)
                         )}
                       >
                         {p}
                       </span>
-                    ))}
-                    <span
-                      className={cn(
-                        "text-[10px] font-medium px-2 py-0.5 rounded",
-                        jitStatusColors[g.status]
+                      {g.scope[p] && (
+                        <>
+                          <span className="text-[10px] text-text-muted">&rarr;</span>
+                          {g.scope[p].map((r) => (
+                            <span key={r} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/[0.06] text-text-secondary">
+                              {r}
+                            </span>
+                          ))}
+                        </>
                       )}
-                    >
-                      {g.status.replace("-", " ")}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-text-muted">
-                    {g.approvalMethod === "auto-policy"
-                      ? "Auto Policy"
-                      : g.approvalMethod === "human"
-                        ? g.approvedBy
-                        : "Policy Engine"}
-                  </span>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-[12px] text-text-secondary">
+                <p className="text-[12px] text-text-secondary mb-2">
                   {g.reason}
                 </p>
+                <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                  <span>
+                    {g.status === "pending-approval"
+                      ? "Awaiting approval via"
+                      : g.approvalMethod === "auto-policy"
+                        ? "Auto-approved via"
+                        : g.approvalMethod === "human"
+                          ? `Approved by ${g.approvedBy} via`
+                          : "Approved via"}
+                  </span>
+                  <PolicyTag name={g.policyName} />
+                  {g.grantedAt && (
+                    <>
+                      <span className="text-text-muted/40">&middot;</span>
+                      <span>{formatTimestamp(g.grantedAt)}</span>
+                    </>
+                  )}
+                  {g.expiresAt && (
+                    <span className="ml-auto font-mono shrink-0">
+                      expires {formatTimestamp(g.expiresAt)}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Grant History */}
+      {/* Elevation History */}
       {pastGrants.length > 0 && (
         <div>
-          <h3 className="text-[13px] font-medium text-text-primary mb-3">
-            Grant History
-          </h3>
+          <div className="mb-3">
+            <h3 className="text-[13px] font-medium text-text-primary">
+              Elevation History
+            </h3>
+            <p className="text-[11px] text-text-muted mt-0.5">
+              Past JIT permission requests and their outcomes
+            </p>
+          </div>
           <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
             {pastGrants.map((g, i) => (
               <div
                 key={g.id}
                 className={cn(
-                  "flex items-center gap-4 px-5 py-3",
+                  "px-5 py-3.5",
                   i < pastGrants.length - 1 &&
                     "border-b border-border-subtle"
                 )}
               >
-                <span className="text-[11px] font-mono text-text-muted w-28 shrink-0">
-                  {new Date(
-                    g.revokedAt ?? g.expiresAt ?? g.requestedAt
-                  ).toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-                <span
-                  className={cn(
-                    "text-[10px] font-medium px-2 py-0.5 rounded w-16 text-center shrink-0",
-                    jitStatusColors[g.status]
-                  )}
-                >
-                  {g.status}
-                </span>
-                <div className="flex items-center gap-1 flex-1 min-w-0">
+                <div className="space-y-1 mb-1.5">
                   {g.permissions.map((p) => (
-                    <span
-                      key={p}
-                      className={cn(
-                        "text-[10px] font-mono px-1.5 py-0.5 rounded",
-                        permColor(p)
+                    <div key={p} className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0",
+                          permColor(p)
+                        )}
+                      >
+                        {p}
+                      </span>
+                      {g.scope[p] && (
+                        <>
+                          <span className="text-[10px] text-text-muted">&rarr;</span>
+                          {g.scope[p].map((r) => (
+                            <span key={r} className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-text-secondary">
+                              {r}
+                            </span>
+                          ))}
+                        </>
                       )}
-                    >
-                      {p}
-                    </span>
+                    </div>
                   ))}
                 </div>
+                <p className="text-[11px] text-text-secondary truncate">
+                  {g.reason}
+                </p>
+                <div className="flex items-center gap-2 text-[10px] text-text-muted mt-1.5">
+                  <span>
+                    {g.status === "expired"
+                      ? "Expired via"
+                      : g.status === "revoked"
+                        ? "Revoked via"
+                        : "Denied via"}
+                  </span>
+                  <PolicyTag name={g.policyName} />
+                  {g.grantedAt && (
+                    <>
+                      <span className="text-text-muted/40">&middot;</span>
+                      <span>
+                        {g.approvalMethod === "human" ? `approved by ${g.approvedBy}` : "auto-approved"} on {formatTimestamp(g.grantedAt)}
+                      </span>
+                    </>
+                  )}
+                  <span className="ml-auto font-mono shrink-0">
+                    {g.status === "expired" ? "expired" : g.status === "revoked" ? "revoked" : "denied"} {formatTimestamp(g.revokedAt ?? g.expiresAt ?? g.requestedAt)}
+                  </span>
+                </div>
                 {g.revokeReason && (
-                  <span
-                    className="text-[10px] text-red-400 max-w-[240px] truncate shrink-0"
+                  <p
+                    className="text-[10px] text-red-400/70 mt-1 truncate"
                     title={g.revokeReason}
                   >
                     {g.revokeReason}
-                  </span>
+                  </p>
                 )}
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Attached Memory Section ───
+
+const memoryTypeBadge = (type: MemoryInstance["type"]) => {
+  switch (type) {
+    case "core":
+      return (
+        <span className="text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded bg-purple-400/10 text-purple-400">
+          CORE
+        </span>
+      );
+    case "archival":
+      return (
+        <span className="text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded bg-sky-400/10 text-sky-400">
+          ARCHIVAL
+        </span>
+      );
+  }
+};
+
+const AttachedMemorySection = ({ agentId }: { agentId: string }) => {
+  const attachedMemories = memoryInstances.filter((m) =>
+    m.accessControl.some(
+      (ac) => ac.principalType === "agent" && ac.principalId === agentId
+    )
+  );
+
+  const getAgentRole = (memory: MemoryInstance): string => {
+    const rule = memory.accessControl.find(
+      (ac) => ac.principalType === "agent" && ac.principalId === agentId
+    );
+    return rule?.role ?? "user";
+  };
+
+  const roleBadge = (role: string) => {
+    const styles: Record<string, string> = {
+      admin: "bg-red-400/10 text-red-400",
+      editor: "bg-amber-400/10 text-amber-400",
+      user: "bg-emerald-400/10 text-emerald-400",
+      viewer: "bg-text-muted/10 text-text-muted",
+    };
+    return (
+      <span className={cn("text-[9px] font-mono font-bold tracking-wider px-1.5 py-0.5 rounded", styles[role] ?? styles.viewer)}>
+        {role.toUpperCase()}
+      </span>
+    );
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Database size={14} className="text-purple-400" />
+          <h3 className="text-[13px] font-medium text-text-primary">
+            Attached Memory
+          </h3>
+          <span className="text-[11px] font-mono text-text-muted">
+            {attachedMemories.length}
+          </span>
+        </div>
+        <button className="flex items-center gap-1.5 text-[11px] font-medium text-text-muted hover:text-text-secondary transition-colors px-2.5 py-1 rounded-md hover:bg-white/[0.05]">
+          <Plus size={12} />
+          Attach
+        </button>
+      </div>
+
+      {attachedMemories.length === 0 ? (
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl p-6 text-center">
+          <p className="text-[13px] text-text-muted">
+            No memory instances attached to this agent.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
+          {attachedMemories.map((memory, i) => {
+            const role = getAgentRole(memory);
+            return (
+              <Link
+                key={memory.id}
+                href={`/memory/${memory.id}`}
+                className={cn(
+                  "flex items-center gap-3 px-5 py-3 hover:bg-white/[0.03] transition-colors group",
+                  i < attachedMemories.length - 1 && "border-b border-border-subtle"
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-medium text-text-primary group-hover:text-accent transition-colors">
+                      {memory.name}
+                    </span>
+                    {memoryTypeBadge(memory.type)}
+                    {roleBadge(role)}
+                  </div>
+                  <p className="text-[11px] text-text-muted truncate mt-0.5">
+                    {memory.description}
+                  </p>
+                </div>
+                <ExternalLink size={12} className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

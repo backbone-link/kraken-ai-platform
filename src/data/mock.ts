@@ -45,6 +45,7 @@ export interface AgentConfig {
   };
   environment: "production" | "staging" | "development";
   autoRecover: boolean;
+  recursion?: RecursionConfig;
 }
 
 export interface AgentRun {
@@ -57,6 +58,126 @@ export interface AgentRun {
   tokensUsed: number;
   cost: number;
   trigger: TriggerType;
+}
+
+// ─── Recursion Types ───
+
+export type RecursionMode = "tasks" | "swarm" | "both";
+export type SubAgentRole = "task" | "swarm-lead" | "swarm-worker";
+export type SubAgentStatus = "pending" | "running" | "completed" | "failed";
+
+export interface RecursionConfig {
+  enabled: boolean;
+  mode: RecursionMode;
+  maxConcurrentWorkers: number;
+  maxTokenBudgetPerWorker: number;
+  maxDurationPerWorker: number;
+  allowedWorkerAgentIds: string[];
+}
+
+export interface SubAgentRun {
+  id: string;
+  parentRunId: string;
+  agentId: string;
+  agentName: string;
+  role: SubAgentRole;
+  status: SubAgentStatus;
+  startedAt: string;
+  duration: number;
+  tokensUsed: number;
+  cost: number;
+  result?: string;
+}
+
+export interface SwarmTask {
+  id: string;
+  subject: string;
+  description: string;
+  assignedTo?: string;
+  status: "pending" | "in_progress" | "completed";
+}
+
+export interface SwarmMessage {
+  id: string;
+  fromAgentId: string;
+  fromAgentName: string;
+  toAgentId?: string;
+  content: string;
+  timestamp: string;
+}
+
+export interface SwarmExecution {
+  id: string;
+  parentRunId: string;
+  leadAgentId: string;
+  workerAgentIds: string[];
+  taskList: SwarmTask[];
+  messages: SwarmMessage[];
+  status: "active" | "completed" | "failed";
+  startedAt: string;
+  duration: number;
+  totalTokens: number;
+  totalCost: number;
+}
+
+// ─── Memory Types ───
+
+export type MemoryScope = "organization" | "workspace" | "team" | "agent";
+export type MemorySensitivity = "public" | "internal" | "confidential" | "restricted";
+export type MemoryType = "core" | "archival";
+export type MemoryRole = "viewer" | "user" | "editor" | "admin";
+
+export interface MemoryInstance {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  scope: MemoryScope;
+  scopeId?: string;
+  sensitivity: MemorySensitivity;
+  type: MemoryType;
+  blocks: MemoryBlock[];
+  accessControl: MemoryAccessRule[];
+  createdAt: string;
+  updatedAt: string;
+  sizeBytes: number;
+  version: number;
+}
+
+export interface MemoryBlock {
+  id: string;
+  label: string;
+  content: string;
+  updatedAt: string;
+  updatedBy: "user" | "agent";
+  agentId?: string;
+}
+
+export type MemoryGrantType = "manual" | "policy";
+
+export interface MemoryAccessRule {
+  principalType: "user" | "agent" | "team" | "role";
+  principalId: string;
+  principalName: string;
+  role: MemoryRole;
+  grantedBy: string;
+  grantedAt: string;
+  grantType: MemoryGrantType;
+  reason?: string;
+  expiresAt?: string;
+  escalatedFrom?: MemoryRole;
+}
+
+export interface MemoryAuditEntry {
+  id: string;
+  memoryId: string;
+  action: "read" | "write" | "attach" | "detach" | "share" | "create" | "delete";
+  actorType: "user" | "agent";
+  actorId: string;
+  actorName: string;
+  blockId?: string;
+  timestamp: string;
+  details?: string;
 }
 
 // ─── Flow Types ───
@@ -255,8 +376,10 @@ export interface JitGrant {
   agentId: string;
   agentName: string;
   permissions: string[];
+  scope: Record<string, string[]>;
   reason: string;
   status: JitStatus;
+  policyName: string;
   requestedAt: string;
   grantedAt?: string;
   expiresAt?: string;
@@ -297,6 +420,46 @@ export interface AuditEntry {
   duration: number;
 }
 
+// ─── Policy Types ───
+
+export type PolicyType = "authorization" | "access" | "execution" | "data-handling" | "escalation";
+
+export type PolicyStatus = "active" | "draft" | "archived";
+
+export interface PolicyRule {
+  id: string;
+  description: string;
+  condition: Record<string, unknown>;
+  effect: "allow" | "deny" | "require-approval" | "escalate";
+  approvalChain?: string[];
+  ttlMinutes?: number;
+  priority: number;
+}
+
+export interface PolicyAttachment {
+  targetType: "agent" | "team" | "workspace" | "organization" | "memory";
+  targetId: string;
+  targetName: string;
+  attachedAt: string;
+  attachedBy: string;
+}
+
+export interface Policy {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  type: PolicyType;
+  scope: "organization" | "workspace" | "team" | "agent";
+  rules: PolicyRule[];
+  attachedTo: PolicyAttachment[];
+  status: PolicyStatus;
+  version: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ═══════════════════════════════════════════
 // Mock Data
 // ═══════════════════════════════════════════
@@ -335,7 +498,7 @@ export const agents: Agent[] = [
   {
     id: "agt-003",
     name: "Demand Forecasting",
-    description: "Agentic demand forecasting — a single Opus 4.6 orchestrator with four tools (manage_tasks, spawn_agents, query_data, run_analysis) loops dynamically, spawning 0..N parallel sub-agents per iteration until confidence thresholds are met. Mirrors Claude Code's team orchestration pattern.",
+    description: "Agentic demand forecasting — a single Opus 4.6 orchestrator with four tools (manage_tasks, spawn_agents, query_data, run_analysis) loops dynamically, spawning 0..N parallel sub-agents per iteration until confidence thresholds are met. Mirrors Claude Code's swarm orchestration pattern.",
     status: "running",
     lastRun: "2026-02-14T06:00:00Z",
     nextRun: "2026-02-15T06:00:00Z",
@@ -389,6 +552,14 @@ export const agentConfigs: Record<string, AgentConfig> = {
     resourceLimits: { maxTokensPerRun: 15_000, maxCostPerRun: 0.50 },
     environment: "production",
     autoRecover: true,
+    recursion: {
+      enabled: true,
+      mode: "tasks",
+      maxConcurrentWorkers: 3,
+      maxTokenBudgetPerWorker: 25_000,
+      maxDurationPerWorker: 60,
+      allowedWorkerAgentIds: ["agt-002", "agt-005"],
+    },
   },
   "agt-002": {
     schedule: { type: "interval", expression: "*/30 * * * *", timezone: "UTC", description: "Every 30 minutes" },
@@ -409,6 +580,14 @@ export const agentConfigs: Record<string, AgentConfig> = {
     resourceLimits: { maxTokensPerRun: 500_000, maxCostPerRun: 15.00 },
     environment: "production",
     autoRecover: false,
+    recursion: {
+      enabled: true,
+      mode: "both",
+      maxConcurrentWorkers: 5,
+      maxTokenBudgetPerWorker: 50_000,
+      maxDurationPerWorker: 180,
+      allowedWorkerAgentIds: ["agt-001", "agt-002", "agt-005"],
+    },
   },
   "agt-004": {
     schedule: { type: "none", description: "Webhook-triggered" },
@@ -1471,19 +1650,19 @@ export const accounts: Account[] = [
 
 export const jitGrants: JitGrant[] = [
   // Active + auto-approved
-  { id: "jit-001", accountId: "svc-001", accountName: "svc-market-intel", agentId: "agt-001", agentName: "Market Intelligence", permissions: ["data:write"], reason: "Writing arbitrage alert results to shared datastore for downstream consumers", status: "active", requestedAt: "2026-02-14T09:00:00Z", grantedAt: "2026-02-14T09:00:01Z", expiresAt: "2026-02-14T10:00:00Z", approvalMethod: "auto-policy", taskContext: "Arbitrage alerting cycle #247" },
+  { id: "jit-001", accountId: "svc-001", accountName: "svc-market-intel", agentId: "agt-001", agentName: "Market Intelligence", permissions: ["data:write"], scope: { "data:write": ["Arbitrage Alerts Store", "Shared Datastore"] }, reason: "Writing arbitrage alert results to shared datastore for downstream consumers", status: "active", policyName: "Data Write Auto-Approve", requestedAt: "2026-02-14T09:00:00Z", grantedAt: "2026-02-14T09:00:01Z", expiresAt: "2026-02-14T10:00:00Z", approvalMethod: "auto-policy", taskContext: "Arbitrage alerting cycle #247" },
   // Active + human-approved
-  { id: "jit-002", accountId: "svc-003", accountName: "svc-demand-forecast", agentId: "agt-003", agentName: "Demand Forecasting", permissions: ["compute:execute", "agents:spawn"], reason: "Spawning parallel sub-agents for Q2 demand model retraining across 12 product categories", status: "active", requestedAt: "2026-02-14T05:50:00Z", grantedAt: "2026-02-14T05:52:00Z", expiresAt: "2026-02-14T07:52:00Z", approvedBy: "Jordan Reeves", approvalMethod: "human", taskContext: "Q2 forecast model retraining" },
+  { id: "jit-002", accountId: "svc-003", accountName: "svc-demand-forecast", agentId: "agt-003", agentName: "Demand Forecasting", permissions: ["compute:execute", "agents:spawn"], scope: { "compute:execute": ["Forecast GPU Pool"], "agents:spawn": ["Sub-Agent Pool (Demand)"] }, reason: "Spawning parallel sub-agents for Q2 demand model retraining across 12 product categories", status: "active", policyName: "Compute Escalation Policy", requestedAt: "2026-02-14T05:50:00Z", grantedAt: "2026-02-14T05:52:00Z", expiresAt: "2026-02-14T07:52:00Z", approvedBy: "Jordan Reeves", approvalMethod: "human", taskContext: "Q2 forecast model retraining" },
   // Pending approval
-  { id: "jit-003", accountId: "svc-002", accountName: "svc-inventory", agentId: "agt-002", agentName: "Inventory Intelligence", permissions: ["data:delete"], reason: "Cleanup of 2,340 orphaned SKU records from decommissioned warehouse WH-07", status: "pending-approval", requestedAt: "2026-02-14T09:22:00Z", approvalMethod: "policy-engine", taskContext: "Orphaned SKU cleanup batch" },
-  // Expired — naturally timed out
-  { id: "jit-004", accountId: "svc-001", accountName: "svc-market-intel", agentId: "agt-001", agentName: "Market Intelligence", permissions: ["integrations:write"], reason: "Updating competitor pricing feed configuration after API schema change", status: "expired", requestedAt: "2026-02-13T14:00:00Z", grantedAt: "2026-02-13T14:00:01Z", expiresAt: "2026-02-13T15:00:00Z", approvalMethod: "auto-policy", taskContext: "Feed config migration v3.2" },
-  // Expired — another natural expiry
-  { id: "jit-005", accountId: "svc-003", accountName: "svc-demand-forecast", agentId: "agt-003", agentName: "Demand Forecasting", permissions: ["data:write", "pipelines:execute"], reason: "Writing forecast outputs and triggering distribution pipeline", status: "expired", requestedAt: "2026-02-13T06:00:00Z", grantedAt: "2026-02-13T06:02:00Z", expiresAt: "2026-02-13T08:02:00Z", approvedBy: "Marcus Rodriguez", approvalMethod: "human", taskContext: "Daily forecast run #189" },
+  { id: "jit-003", accountId: "svc-002", accountName: "svc-inventory", agentId: "agt-002", agentName: "Inventory Intelligence", permissions: ["data:delete"], scope: { "data:delete": ["SKU Records", "Warehouse WH-07"] }, reason: "Cleanup of 2,340 orphaned SKU records from decommissioned warehouse WH-07", status: "pending-approval", policyName: "Destructive Operations Policy", requestedAt: "2026-02-14T09:22:00Z", approvalMethod: "policy-engine", taskContext: "Orphaned SKU cleanup batch" },
+  // Expired — TTL enforced by policy
+  { id: "jit-004", accountId: "svc-001", accountName: "svc-market-intel", agentId: "agt-001", agentName: "Market Intelligence", permissions: ["integrations:write"], scope: { "integrations:write": ["Competitor Pricing Feed", "API Config Store"] }, reason: "Updating competitor pricing feed configuration after API schema change", status: "expired", policyName: "Integration Config Policy", requestedAt: "2026-02-13T14:00:00Z", grantedAt: "2026-02-13T14:00:01Z", expiresAt: "2026-02-13T15:00:00Z", approvalMethod: "auto-policy", taskContext: "Feed config migration v3.2" },
+  // Expired — TTL enforced by policy
+  { id: "jit-005", accountId: "svc-003", accountName: "svc-demand-forecast", agentId: "agt-003", agentName: "Demand Forecasting", permissions: ["data:write", "pipelines:execute"], scope: { "data:write": ["Forecast Output Store"], "pipelines:execute": ["Distribution Pipeline"] }, reason: "Writing forecast outputs and triggering distribution pipeline", status: "expired", policyName: "Forecast Pipeline Policy", requestedAt: "2026-02-13T06:00:00Z", grantedAt: "2026-02-13T06:02:00Z", expiresAt: "2026-02-13T08:02:00Z", approvedBy: "Marcus Rodriguez", approvalMethod: "human", taskContext: "Daily forecast run #189" },
   // Revoked by guardrail
-  { id: "jit-006", accountId: "svc-004", accountName: "svc-price-optimizer", agentId: "agt-005", agentName: "Price Optimization", permissions: ["data:write", "integrations:write"], reason: "Pushing dynamic pricing updates to marketplace connectors", status: "revoked", requestedAt: "2026-02-13T22:30:00Z", grantedAt: "2026-02-13T22:31:00Z", expiresAt: "2026-02-13T22:46:00Z", revokedAt: "2026-02-13T22:47:00Z", approvedBy: "Marcus Rodriguez", approvalMethod: "human", revokeReason: "Price floor guardrail triggered — agent attempted to set price below $2.99 minimum", taskContext: "Dynamic repricing session" },
+  { id: "jit-006", accountId: "svc-004", accountName: "svc-price-optimizer", agentId: "agt-005", agentName: "Price Optimization", permissions: ["data:write", "integrations:write"], scope: { "data:write": ["Pricing Data", "Product Catalog"], "integrations:write": ["Amazon Connector", "Shopify Connector"] }, reason: "Pushing dynamic pricing updates to marketplace connectors", status: "revoked", policyName: "Pricing Guardrail Policy", requestedAt: "2026-02-13T22:30:00Z", grantedAt: "2026-02-13T22:31:00Z", expiresAt: "2026-02-13T22:46:00Z", revokedAt: "2026-02-13T22:47:00Z", approvedBy: "Marcus Rodriguez", approvalMethod: "human", revokeReason: "Price floor guardrail triggered — agent attempted to set price below $2.99 minimum", taskContext: "Dynamic repricing session" },
   // Denied
-  { id: "jit-007", accountId: "svc-002", accountName: "svc-inventory", agentId: "agt-002", agentName: "Inventory Intelligence", permissions: ["integrations:admin"], reason: "Requesting admin access to reconfigure warehouse management connector", status: "denied", requestedAt: "2026-02-12T11:00:00Z", approvalMethod: "policy-engine", revokeReason: "Permission scope too broad for automated operations — requires human-initiated change request", taskContext: "WMS connector reconfiguration" },
+  { id: "jit-007", accountId: "svc-002", accountName: "svc-inventory", agentId: "agt-002", agentName: "Inventory Intelligence", permissions: ["integrations:admin"], scope: { "integrations:admin": ["Warehouse Management Connector"] }, reason: "Requesting admin access to reconfigure warehouse management connector", status: "denied", policyName: "Admin Access Restriction Policy", requestedAt: "2026-02-12T11:00:00Z", approvalMethod: "policy-engine", revokeReason: "Permission scope too broad for automated operations — requires human-initiated change request", taskContext: "WMS connector reconfiguration" },
 ];
 
 export const apiKeys: ApiKey[] = [
@@ -2087,3 +2266,657 @@ export const agentTimeSeries: Record<string, {
   "agt-004": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.25), duration: scaleDuration(durationTimeSeries, 950), tokens: scaleTokens(tokenUsageTimeSeries, 0.15), cost: scaleCost(costTimeSeries, 0.10) },
   "agt-005": { apiCalls: scaleTimeSeries(apiCallsTimeSeries, 0.09), duration: scaleDuration(durationTimeSeries, 3200), tokens: scaleTokens(tokenUsageTimeSeries, 0.10), cost: scaleCost(costTimeSeries, 0.13) },
 };
+
+// ─── Sub-Agent Runs ───
+
+export const subAgentRuns: SubAgentRun[] = [
+  // Sub-agents spawned by Demand Forecasting (agt-003) during run-006
+  {
+    id: "sa-001",
+    parentRunId: "run-006",
+    agentId: "agt-002",
+    agentName: "Inventory Intelligence",
+    role: "task",
+    status: "completed",
+    startedAt: "2026-02-14T06:02:00Z",
+    duration: 62,
+    tokensUsed: 18_400,
+    cost: 0.05,
+    result: "Retrieved current inventory levels for 1,247 SKUs across 3 warehouses. Identified 42 items below reorder threshold.",
+  },
+  {
+    id: "sa-002",
+    parentRunId: "run-006",
+    agentId: "agt-001",
+    agentName: "Market Intelligence",
+    role: "task",
+    status: "completed",
+    startedAt: "2026-02-14T06:02:00Z",
+    duration: 88,
+    tokensUsed: 31_200,
+    cost: 0.09,
+    result: "Analyzed competitor pricing trends for top 200 products. Detected 3 categories with >10% price movement in last 48h.",
+  },
+  {
+    id: "sa-003",
+    parentRunId: "run-006",
+    agentId: "agt-005",
+    agentName: "Price Optimization",
+    role: "task",
+    status: "failed",
+    startedAt: "2026-02-14T06:03:30Z",
+    duration: 12,
+    tokensUsed: 4_100,
+    cost: 0.01,
+    result: "Failed: upstream pricing API returned 503 Service Unavailable after 3 retries.",
+  },
+  {
+    id: "sa-004",
+    parentRunId: "run-006",
+    agentId: "agt-005",
+    agentName: "Price Optimization",
+    role: "task",
+    status: "completed",
+    startedAt: "2026-02-14T06:05:00Z",
+    duration: 134,
+    tokensUsed: 42_600,
+    cost: 0.12,
+    result: "Generated optimal price points for 89 product categories using elasticity model. Projected +4.2% margin improvement.",
+  },
+  // Sub-agents spawned by Market Intelligence (agt-001) during run-003
+  {
+    id: "sa-005",
+    parentRunId: "run-003",
+    agentId: "agt-002",
+    agentName: "Inventory Intelligence",
+    role: "task",
+    status: "completed",
+    startedAt: "2026-02-13T14:15:30Z",
+    duration: 45,
+    tokensUsed: 12_800,
+    cost: 0.04,
+    result: "Cross-referenced current stock levels with identified arbitrage opportunities. Confirmed sufficient inventory for 2 actionable items.",
+  },
+  {
+    id: "sa-006",
+    parentRunId: "run-003",
+    agentId: "agt-005",
+    agentName: "Price Optimization",
+    role: "task",
+    status: "running",
+    startedAt: "2026-02-13T14:15:30Z",
+    duration: 78,
+    tokensUsed: 22_100,
+    cost: 0.06,
+  },
+];
+
+// ─── Swarm Executions ───
+
+export const swarmExecutions: SwarmExecution[] = [
+  // Swarm execution by Demand Forecasting (agt-003) during run-006
+  {
+    id: "swarm-001",
+    parentRunId: "run-006",
+    leadAgentId: "agt-003",
+    workerAgentIds: ["agt-001", "agt-002", "agt-005"],
+    taskList: [
+      { id: "tt-001", subject: "Collect historical sales data", description: "Query Snowflake for 90-day sales history across all product categories, grouped by region and channel.", assignedTo: "agt-002", status: "completed" },
+      { id: "tt-002", subject: "Analyze market signals", description: "Pull competitor pricing, Google Trends data, and social sentiment for top 50 products.", assignedTo: "agt-001", status: "completed" },
+      { id: "tt-003", subject: "Run elasticity models", description: "Execute price elasticity regression on each product category using historical data from tt-001.", assignedTo: "agt-005", status: "completed" },
+      { id: "tt-004", subject: "Generate consolidated forecast", description: "Merge all worker outputs into a single 7-day demand forecast with confidence intervals.", status: "completed" },
+      { id: "tt-005", subject: "Validate forecast against baselines", description: "Compare generated forecast to naive and seasonal baselines. Flag any category where our model underperforms.", assignedTo: "agt-001", status: "completed" },
+    ],
+    messages: [
+      { id: "tm-001", fromAgentId: "agt-003", fromAgentName: "Demand Forecasting", content: "Starting daily forecast run. Assigning parallel data collection tasks. Workers: check your task assignments.", timestamp: "2026-02-14T06:01:00Z" },
+      { id: "tm-002", fromAgentId: "agt-002", fromAgentName: "Inventory Intelligence", toAgentId: "agt-003", content: "Historical sales data collected: 1,247 SKUs across 3 warehouses, 90-day window. 2 SKUs had missing data for Jan 28-30, interpolated using 7-day moving average.", timestamp: "2026-02-14T06:03:10Z" },
+      { id: "tm-003", fromAgentId: "agt-001", fromAgentName: "Market Intelligence", toAgentId: "agt-003", content: "Market signals ready. Notable: Electronics category shows 18% price compression from 3 major competitors. Social sentiment for Home & Garden trending +12% week-over-week.", timestamp: "2026-02-14T06:04:20Z" },
+      { id: "tm-004", fromAgentId: "agt-005", fromAgentName: "Price Optimization", toAgentId: "agt-003", content: "Elasticity models complete for 89 categories. Average R² = 0.84. 7 categories flagged with insufficient data for reliable regression (< 30 data points).", timestamp: "2026-02-14T06:08:45Z" },
+      { id: "tm-005", fromAgentId: "agt-003", fromAgentName: "Demand Forecasting", content: "All worker outputs received. Merging into consolidated forecast. Will weight market signals at 0.35 given the competitor price compression signal.", timestamp: "2026-02-14T06:09:00Z" },
+      { id: "tm-006", fromAgentId: "agt-001", fromAgentName: "Market Intelligence", toAgentId: "agt-003", content: "Baseline comparison complete. Our model outperforms seasonal naive by 14.2% MAPE on average. 3 categories underperform: Seasonal Decor (-2.1%), Gift Cards (-0.8%), Clearance (-1.4%). Recommend manual review for these.", timestamp: "2026-02-14T06:12:30Z" },
+      { id: "tm-007", fromAgentId: "agt-003", fromAgentName: "Demand Forecasting", content: "Forecast finalized. Overall confidence: 94.1%. Writing to Snowflake and notifying #demand-planning. Shutting down worker sessions.", timestamp: "2026-02-14T06:14:00Z" },
+    ],
+    status: "completed",
+    startedAt: "2026-02-14T06:01:00Z",
+    duration: 780,
+    totalTokens: 284_000,
+    totalCost: 8.42,
+  },
+  // Swarm execution by Demand Forecasting (agt-003) during drun-011 — currently active
+  {
+    id: "swarm-002",
+    parentRunId: "drun-011",
+    leadAgentId: "agt-003",
+    workerAgentIds: ["agt-001", "agt-002"],
+    taskList: [
+      { id: "tt-006", subject: "Pull weekend sales actuals", description: "Retrieve Saturday-Sunday actual sales from Snowflake to compare against Friday's forecast.", assignedTo: "agt-002", status: "completed" },
+      { id: "tt-007", subject: "Refresh competitor pricing snapshot", description: "Scrape current competitor prices for top 100 products. Compare to Friday snapshot for delta analysis.", assignedTo: "agt-001", status: "in_progress" },
+      { id: "tt-008", subject: "Calculate forecast accuracy metrics", description: "Compute MAPE, MAE, and bias for each product category using weekend actuals vs. forecast.", status: "pending" },
+      { id: "tt-009", subject: "Generate Monday adjustment recommendations", description: "Based on weekend variance, propose adjustments to the active 7-day forecast for remaining days.", status: "pending" },
+    ],
+    messages: [
+      { id: "tm-008", fromAgentId: "agt-003", fromAgentName: "Demand Forecasting", content: "Starting Monday recalibration run. Weekend actuals should be available. Assigning data collection tasks.", timestamp: "2026-02-15T06:01:00Z" },
+      { id: "tm-009", fromAgentId: "agt-002", fromAgentName: "Inventory Intelligence", toAgentId: "agt-003", content: "Weekend actuals pulled: 892 SKUs with Saturday data, 887 with Sunday data. 5 SKUs missing Sunday due to warehouse system maintenance window (22:00-02:00 UTC).", timestamp: "2026-02-15T06:03:30Z" },
+      { id: "tm-010", fromAgentId: "agt-003", fromAgentName: "Demand Forecasting", toAgentId: "agt-001", content: "Weekend data received. Please prioritize electronics and home & garden categories in your competitor scan — those had the largest forecast variance on Friday.", timestamp: "2026-02-15T06:04:00Z" },
+      { id: "tm-011", fromAgentId: "agt-001", fromAgentName: "Market Intelligence", toAgentId: "agt-003", content: "Acknowledged. Scanning electronics and home & garden first. Initial results: 2 competitors ran flash sales on Saturday that weren't in our model. This likely explains the demand spike.", timestamp: "2026-02-15T06:05:45Z" },
+      { id: "tm-012", fromAgentId: "agt-001", fromAgentName: "Market Intelligence", toAgentId: "agt-003", content: "Competitor scan in progress — 68/100 products complete. Electronics delta: avg -6.2% price drop across competitors. Home & Garden: stable within 1.5%.", timestamp: "2026-02-15T06:08:20Z" },
+    ],
+    status: "active",
+    startedAt: "2026-02-15T06:01:00Z",
+    duration: 460,
+    totalTokens: 98_400,
+    totalCost: 2.91,
+  },
+];
+
+// ─── Memory Instances ───
+
+export const memoryInstances: MemoryInstance[] = [
+  {
+    id: "mem-001",
+    name: "Customer Preferences",
+    description: "Aggregated customer behavior patterns, segment profiles, and preference signals used by customer-facing agents.",
+    icon: "users",
+    scope: "organization",
+    sensitivity: "internal",
+    type: "core",
+    blocks: [
+      {
+        id: "mb-001",
+        label: "Segment Profiles",
+        content: "Enterprise accounts (>$50K ARR): Prefer direct account manager contact, quarterly business reviews, and custom SLA terms. Response time expectation: <2 hours during business hours.\n\nMid-market ($5K–$50K ARR): Self-serve preferred for routine requests. Escalation path: chat → email → phone. Average resolution cycle: 1.4 business days.\n\nSMB (<$5K ARR): Fully self-serve. Knowledge base and community forum are primary support channels. Churn risk highest in first 90 days — trigger onboarding sequence if no product usage by day 7.",
+        updatedAt: "2026-02-13T10:30:00Z",
+        updatedBy: "agent",
+        agentId: "agt-004",
+      },
+      {
+        id: "mb-002",
+        label: "Communication Preferences",
+        content: "Default notification channel: email for billing, in-app for product updates, SMS for security alerts only.\n\nOpt-out rates by channel: Email 12%, SMS 34%, Push 8%.\n\nBest send times (A/B tested): Tuesday–Thursday, 10:00–11:30 AM local time. Avoid Mondays before 9 AM and Fridays after 3 PM.\n\nPersonalization rules: Use first name in subject lines (increases open rate by 18%). Include company name in enterprise tier communications.",
+        updatedAt: "2026-02-12T16:45:00Z",
+        updatedBy: "user",
+      },
+      {
+        id: "mb-003",
+        label: "Product Interest Signals",
+        content: "Top requested features (last 30 days):\n1. API rate limit increase (mentioned in 42 tickets)\n2. Custom dashboard widgets (28 tickets)\n3. Webhook retry configuration (19 tickets)\n4. Bulk export improvements (15 tickets)\n\nFeature adoption after launch: Average 23% adoption in first week, 61% by end of month. Features with in-app tutorials see 2.3x faster adoption.",
+        updatedAt: "2026-02-13T09:15:00Z",
+        updatedBy: "agent",
+        agentId: "agt-001",
+      },
+    ],
+    accessControl: [
+      { principalType: "user", principalId: "usr-001", principalName: "Jordan Reeves", role: "admin", grantedBy: "System", grantedAt: "2025-11-15T09:00:00Z", grantType: "manual" },
+      { principalType: "agent", principalId: "agt-004", principalName: "Customer Support Triage", role: "editor", grantedBy: "Jordan Reeves", grantedAt: "2025-11-20T14:00:00Z", grantType: "manual", reason: "Primary agent for customer interactions" },
+      { principalType: "agent", principalId: "agt-001", principalName: "Market Intelligence", role: "user", grantedBy: "Jordan Reeves", grantedAt: "2025-12-01T10:00:00Z", grantType: "manual" },
+      { principalType: "agent", principalId: "agt-005", principalName: "Price Optimization", role: "viewer", grantedBy: "Sarah Chen", grantedAt: "2026-01-10T11:30:00Z", grantType: "manual", reason: "Read-only for pricing personalization" },
+      { principalType: "user", principalId: "usr-002", principalName: "Sarah Chen", role: "editor", grantedBy: "Jordan Reeves", grantedAt: "2025-11-15T09:30:00Z", grantType: "manual" },
+    ],
+    createdAt: "2025-11-15T09:00:00Z",
+    updatedAt: "2026-02-13T10:30:00Z",
+    sizeBytes: 12_288,
+    version: 14,
+  },
+  {
+    id: "mem-002",
+    name: "Product Catalog",
+    description: "Comprehensive product database with specifications, pricing tiers, inventory metadata, and supplier information. Agents search this on demand.",
+    icon: "package",
+    scope: "workspace",
+    sensitivity: "public",
+    type: "archival",
+    blocks: [
+      {
+        id: "mb-004",
+        label: "Product Categories",
+        content: "Active categories: 89 (up from 76 in Q3 2025)\n\nTop 5 by revenue:\n1. Consumer Electronics — $4.2M MTD (32% of total)\n2. Home & Garden — $2.1M MTD (16%)\n3. Computer Components — $1.8M MTD (14%)\n4. Audio Equipment — $1.4M MTD (11%)\n5. Smart Home Devices — $1.1M MTD (8%)\n\nNew categories added in 2026: EV Accessories, AI Hardware, Sustainable Tech.\nDeprecated: Physical Media (sunset March 2026).",
+        updatedAt: "2026-02-14T08:00:00Z",
+        updatedBy: "agent",
+        agentId: "agt-002",
+      },
+      {
+        id: "mb-005",
+        label: "Pricing Tiers & Rules",
+        content: "Standard markup: 22-35% depending on category.\nVolume discount thresholds: 10+ units (5% off), 50+ units (12% off), 100+ units (18% off, requires manager approval).\n\nPrice floor policy: No product may be listed below supplier cost + 8% margin. Automated enforcement via Price Optimization agent.\n\nDynamic pricing enabled for: Consumer Electronics, Computer Components, Audio Equipment.\nFixed pricing categories: Cables & Adapters, Warranty Plans, Installation Services.",
+        updatedAt: "2026-02-13T17:30:00Z",
+        updatedBy: "user",
+      },
+      {
+        id: "mb-006",
+        label: "Supplier Directory",
+        content: "Active suppliers: 34\nPrimary (>$500K annual volume): TechSource Global, Pacific Components Ltd, EuroTech Distribution\nSecondary: 12 regional suppliers across NA, EU, APAC\nDrop-ship partners: 8 (used for long-tail SKUs with <5 units/month velocity)\n\nLead times: Primary suppliers avg 3-5 business days. Secondary avg 7-12 days. Drop-ship 5-15 days.\nPayment terms: Net 30 for primary, Net 15 for secondary, prepaid for drop-ship.",
+        updatedAt: "2026-02-10T14:00:00Z",
+        updatedBy: "agent",
+        agentId: "agt-002",
+      },
+      {
+        id: "mb-007",
+        label: "Inventory Thresholds",
+        content: "Reorder point formula: (Average daily sales × Lead time days) + Safety stock.\nSafety stock = 1.5σ of daily sales × √(lead time days).\n\nCritical stock alerts: Trigger when inventory < 7 days of projected sales.\nOverstock alerts: Trigger when inventory > 90 days of projected sales.\n\nWarehouse allocation priority: WH-01 (East Coast) → WH-02 (West Coast) → WH-03 (Central). Overflow to 3PL partner when all warehouses > 85% capacity.",
+        updatedAt: "2026-02-12T11:20:00Z",
+        updatedBy: "agent",
+        agentId: "agt-002",
+      },
+    ],
+    accessControl: [
+      { principalType: "user", principalId: "usr-001", principalName: "Jordan Reeves", role: "admin", grantedBy: "System", grantedAt: "2025-09-20T10:00:00Z", grantType: "manual" },
+      { principalType: "user", principalId: "usr-003", principalName: "Marcus Rodriguez", role: "editor", grantedBy: "Jordan Reeves", grantedAt: "2025-09-21T09:00:00Z", grantType: "manual" },
+      { principalType: "agent", principalId: "agt-002", principalName: "Inventory Intelligence", role: "editor", grantedBy: "Marcus Rodriguez", grantedAt: "2025-10-01T14:00:00Z", grantType: "manual", reason: "Manages catalog updates and supplier data" },
+      { principalType: "agent", principalId: "agt-001", principalName: "Market Intelligence", role: "user", grantedBy: "Jordan Reeves", grantedAt: "2025-10-05T10:00:00Z", grantType: "manual" },
+      { principalType: "agent", principalId: "agt-003", principalName: "Demand Forecasting", role: "editor", grantedBy: "System", grantedAt: "2026-02-14T09:00:00Z", grantType: "policy", reason: "Quarterly forecast analysis", expiresAt: "2026-02-14T11:00:00Z", escalatedFrom: "user" },
+      { principalType: "agent", principalId: "agt-004", principalName: "Customer Support Triage", role: "viewer", grantedBy: "Jordan Reeves", grantedAt: "2025-11-15T11:00:00Z", grantType: "manual" },
+      { principalType: "agent", principalId: "agt-005", principalName: "Price Optimization", role: "user", grantedBy: "Marcus Rodriguez", grantedAt: "2025-12-10T16:00:00Z", grantType: "manual" },
+    ],
+    createdAt: "2025-09-20T10:00:00Z",
+    updatedAt: "2026-02-14T08:00:00Z",
+    sizeBytes: 2_516_582,
+    version: 87,
+  },
+  {
+    id: "mem-003",
+    name: "Compliance Rules",
+    description: "Regulatory requirements, data handling policies, and compliance guardrails that agents must follow during execution.",
+    icon: "shield",
+    scope: "organization",
+    sensitivity: "confidential",
+    type: "core",
+    blocks: [
+      {
+        id: "mb-008",
+        label: "PII Handling Policy",
+        content: "All personally identifiable information must be classified and handled according to sensitivity tier:\n\nTier 1 (Critical): SSN, financial account numbers, biometric data — encrypt at rest (AES-256), mask in logs, never include in agent context windows. Auto-kill agent run if detected in unencrypted form.\n\nTier 2 (Sensitive): Email addresses, phone numbers, physical addresses — encrypt at rest, redact in non-essential logs. May appear in agent context only when processing a direct customer request.\n\nTier 3 (Standard): Names, company affiliations, job titles — encrypt at rest. May appear in agent context and logs.\n\nRetention: Tier 1 data purged after 90 days unless legally required. Tier 2 after 1 year. Tier 3 follows standard 7-year retention.",
+        updatedAt: "2026-02-01T09:00:00Z",
+        updatedBy: "user",
+      },
+      {
+        id: "mb-009",
+        label: "Pricing Compliance",
+        content: "Minimum Advertised Price (MAP) enforcement: All marketplace listings must comply with manufacturer MAP agreements. Violations trigger automatic price correction + incident report.\n\nPrice discrimination prohibition: Same product, same condition must have identical pricing across all channels within a given region. Regional pricing differences allowed only with documented cost basis.\n\nCompetitor price matching: Automated matching permitted for verified competitors only (curated list of 12 approved competitor domains). Manual review required for price matches >25% below current listing.",
+        updatedAt: "2026-01-28T14:30:00Z",
+        updatedBy: "user",
+      },
+      {
+        id: "mb-010",
+        label: "Agent Execution Guardrails",
+        content: "Maximum autonomous spend per agent run: $50 (requires human approval above this threshold).\nMaximum inventory adjustment per run: 500 units (hard limit, no override).\nMaximum price change per SKU per day: 15% in either direction.\n\nEscalation triggers:\n- Any action affecting >1,000 SKUs simultaneously\n- Cross-region data transfers\n- Access to financial reporting systems\n- Modifications to other agents' configurations\n\nAll guardrail violations logged to audit trail with full context. Three violations within 24 hours triggers automatic agent suspension.",
+        updatedAt: "2026-02-10T16:00:00Z",
+        updatedBy: "agent",
+        agentId: "agt-003",
+      },
+    ],
+    accessControl: [
+      { principalType: "user", principalId: "usr-001", principalName: "Jordan Reeves", role: "admin", grantedBy: "System", grantedAt: "2025-10-05T11:00:00Z", grantType: "manual" },
+      { principalType: "user", principalId: "usr-004", principalName: "Priya Patel", role: "editor", grantedBy: "Jordan Reeves", grantedAt: "2025-10-06T09:00:00Z", grantType: "manual", reason: "Compliance lead" },
+      { principalType: "agent", principalId: "agt-003", principalName: "Demand Forecasting", role: "user", grantedBy: "Priya Patel", grantedAt: "2025-10-10T14:30:00Z", grantType: "manual", reason: "Reads guardrails during forecast runs" },
+      { principalType: "agent", principalId: "agt-004", principalName: "Customer Support Triage", role: "viewer", grantedBy: "Priya Patel", grantedAt: "2025-11-01T10:00:00Z", grantType: "manual", reason: "Checks PII rules during ticket classification" },
+    ],
+    createdAt: "2025-10-05T11:00:00Z",
+    updatedAt: "2026-02-10T16:00:00Z",
+    sizeBytes: 49_152,
+    version: 23,
+  },
+  {
+    id: "mem-004",
+    name: "Sales Playbook",
+    description: "Sales strategies, objection handling scripts, competitive positioning, and deal qualification criteria for the sales team's AI assistant.",
+    icon: "book-open",
+    scope: "team",
+    scopeId: "team-sales",
+    sensitivity: "internal",
+    type: "archival",
+    blocks: [
+      {
+        id: "mb-011",
+        label: "Competitive Positioning",
+        content: "vs. CompetitorA (TechDirect):\n- Our advantage: 40% faster fulfillment (avg 2.1 days vs their 3.5 days), dedicated account management for enterprise tier, real-time inventory visibility.\n- Their advantage: Lower entry-level pricing (15-20% below our SMB tier), broader international coverage (42 countries vs our 18).\n- Win strategy: Lead with fulfillment speed and reliability metrics. Offer 30-day pilot with SLA guarantee.\n\nvs. CompetitorB (GlobalParts):\n- Our advantage: Superior AI-powered demand forecasting (14% better MAPE), automated restock alerts, deeper marketplace integration.\n- Their advantage: Established brand in APAC region, legacy ERP integrations.\n- Win strategy: Demonstrate forecast accuracy with customer case studies. Position AI capabilities as future-proof investment.",
+        updatedAt: "2026-02-11T13:00:00Z",
+        updatedBy: "user",
+      },
+      {
+        id: "mb-012",
+        label: "Qualification Criteria (BANT)",
+        content: "Budget: Minimum $5K/year for SMB qualification, $25K/year for mid-market, $100K/year for enterprise.\n\nAuthority: Must identify economic buyer within first 2 meetings. For enterprise deals, require VP-level or above sponsor.\n\nNeed: Must have at least 2 of: multi-channel selling, inventory management pain, pricing optimization need, demand forecasting gap.\n\nTimeline: Active evaluation (decision within 90 days) = high priority. Exploratory (6+ months) = nurture track.\n\nDeal stages: Discovery → Demo → Technical Validation → Commercial Negotiation → Legal Review → Closed Won/Lost.\nAverage cycle: SMB 21 days, Mid-market 45 days, Enterprise 90 days.",
+        updatedAt: "2026-02-08T10:45:00Z",
+        updatedBy: "user",
+      },
+    ],
+    accessControl: [
+      { principalType: "user", principalId: "usr-001", principalName: "Jordan Reeves", role: "admin", grantedBy: "System", grantedAt: "2025-12-01T09:00:00Z", grantType: "manual" },
+      { principalType: "agent", principalId: "agt-004", principalName: "Customer Support Triage", role: "user", grantedBy: "Jordan Reeves", grantedAt: "2025-12-05T11:00:00Z", grantType: "manual", reason: "References playbook during customer calls" },
+      { principalType: "team", principalId: "team-sales", principalName: "Sales Team", role: "editor", grantedBy: "Jordan Reeves", grantedAt: "2025-12-01T09:15:00Z", grantType: "manual" },
+    ],
+    createdAt: "2025-12-01T09:00:00Z",
+    updatedAt: "2026-02-11T13:00:00Z",
+    sizeBytes: 911_360,
+    version: 9,
+  },
+  {
+    id: "mem-005",
+    name: "Company Context",
+    description: "Core company information, mission, values, and operational context that all agents use as foundational knowledge.",
+    icon: "building",
+    scope: "organization",
+    sensitivity: "public",
+    type: "core",
+    blocks: [
+      {
+        id: "mb-013",
+        label: "Company Overview",
+        content: "Acme Electronics is a B2B e-commerce platform specializing in electronics distribution. Founded 2019, headquartered in Austin, TX. 340 employees across 3 offices (Austin, Portland, London).\n\nCore business: Multi-channel electronics distribution — we help manufacturers and distributors sell through Amazon, Shopify, Walmart, and direct B2B channels using AI-powered pricing, inventory, and demand management.\n\nKey metrics (FY 2025): $127M GMV, 4,891 active SKUs, 34 supplier partnerships, 12,400 active B2B customer accounts.\n\nMission: Make electronics distribution intelligent, automated, and profitable for every seller.",
+        updatedAt: "2026-01-15T10:00:00Z",
+        updatedBy: "user",
+      },
+      {
+        id: "mb-014",
+        label: "Operational Context",
+        content: "Warehouses: 3 operated (WH-01 East Coast/NJ, WH-02 West Coast/CA, WH-03 Central/TX). 2 3PL overflow partners.\n\nTechnology stack: Next.js frontend, Python/FastAPI backend, PostgreSQL + Snowflake for data, Kraken AI Platform for agent orchestration.\n\nKey integrations: Amazon SP-API, Shopify, Snowflake, Zendesk, Slack, PostgreSQL.\n\nOperating hours: Platform is 24/7. Human support: Mon–Fri 8 AM – 8 PM ET. Weekend on-call rotation for P1 incidents.\n\nFiscal year: Calendar year (Jan–Dec). Planning cycles: Quarterly OKRs, monthly business reviews.",
+        updatedAt: "2026-02-01T14:00:00Z",
+        updatedBy: "user",
+      },
+      {
+        id: "mb-015",
+        label: "Brand Voice Guidelines",
+        content: "Tone: Professional but approachable. We are experts, not academics — explain complex things simply.\n\nDo: Use data to back up claims. Be specific (numbers, dates, metrics). Acknowledge limitations honestly.\nDon't: Use jargon without explanation. Make promises about future features. Use superlatives without evidence.\n\nCustomer-facing communications: Always address by name. Lead with value/impact, not features. Close with clear next step.\n\nInternal communications: Direct and concise. Lead with the decision or ask. Include context as optional expandable section.",
+        updatedAt: "2026-01-20T11:30:00Z",
+        updatedBy: "user",
+      },
+    ],
+    accessControl: [
+      { principalType: "user", principalId: "usr-001", principalName: "Jordan Reeves", role: "admin", grantedBy: "System", grantedAt: "2025-08-01T10:00:00Z", grantType: "manual" },
+      { principalType: "role", principalId: "role-all-agents", principalName: "All Agents", role: "user", grantedBy: "Jordan Reeves", grantedAt: "2025-08-01T10:05:00Z", grantType: "policy", reason: "Default org-wide agent access" },
+      { principalType: "role", principalId: "role-all-humans", principalName: "All Team Members", role: "viewer", grantedBy: "Jordan Reeves", grantedAt: "2025-08-01T10:05:00Z", grantType: "policy", reason: "Default org-wide team visibility" },
+    ],
+    createdAt: "2025-08-01T10:00:00Z",
+    updatedAt: "2026-02-01T14:00:00Z",
+    sizeBytes: 8_192,
+    version: 31,
+  },
+  {
+    id: "mem-006",
+    name: "Q4 Strategy",
+    description: "Confidential strategic planning data for Q4 2026, including revenue targets, market expansion plans, and competitive initiatives.",
+    icon: "target",
+    scope: "workspace",
+    scopeId: "ws-strategy",
+    sensitivity: "restricted",
+    type: "core",
+    blocks: [
+      {
+        id: "mb-016",
+        label: "Revenue Targets",
+        content: "Q4 2026 targets:\n- GMV: $42M (32% YoY growth)\n- Net revenue: $9.8M (target margin 23.3%)\n- New enterprise accounts: 18\n- Net revenue retention: 115%\n\nGrowth levers:\n1. APAC expansion (target: $3.2M incremental GMV from Japan and Australia)\n2. AI-powered dynamic pricing rollout to all categories (projected +4.2% margin lift)\n3. Enterprise tier launch with dedicated agent clusters\n\nRisk factors: Potential tariff changes on electronics imports, competitor VC funding round (TechDirect reportedly raising Series C).",
+        updatedAt: "2026-02-14T15:00:00Z",
+        updatedBy: "user",
+      },
+      {
+        id: "mb-017",
+        label: "Competitive Intelligence",
+        content: "TechDirect Series C: Rumored $80M raise at $400M valuation. Expected to accelerate international expansion and AI capabilities. Our window to establish APAC presence is 6-9 months before they enter.\n\nGlobalParts acquisition: Acquired by LogiCorp in January 2026. Integration expected to take 12-18 months. Short-term disruption likely — target their mid-market customers during transition.\n\nNew entrant: AI-first startup 'FluxCommerce' launched beta in January. Strong technical team (ex-Google, ex-Anthropic). Small but growing fast. Monitor closely.",
+        updatedAt: "2026-02-14T15:00:00Z",
+        updatedBy: "user",
+      },
+    ],
+    accessControl: [
+      { principalType: "user", principalId: "usr-001", principalName: "Jordan Reeves", role: "admin", grantedBy: "System", grantedAt: "2026-01-10T09:00:00Z", grantType: "manual" },
+      { principalType: "agent", principalId: "agt-003", principalName: "Demand Forecasting", role: "viewer", grantedBy: "Jordan Reeves", grantedAt: "2026-01-10T09:30:00Z", grantType: "manual", reason: "Reads revenue targets for forecast modeling" },
+      { principalType: "agent", principalId: "agt-001", principalName: "Market Intelligence", role: "viewer", grantedBy: "Jordan Reeves", grantedAt: "2026-02-15T08:00:00Z", grantType: "manual", reason: "Ad-hoc competitive analysis for board prep", expiresAt: "2026-02-15T10:00:00Z" },
+    ],
+    createdAt: "2026-01-10T09:00:00Z",
+    updatedAt: "2026-02-14T15:00:00Z",
+    sizeBytes: 24_576,
+    version: 6,
+  },
+];
+
+// ─── Memory Audit Entries ───
+
+export const memoryAuditEntries: MemoryAuditEntry[] = [
+  { id: "maud-001", memoryId: "mem-001", action: "write", actorType: "agent", actorId: "agt-004", actorName: "Customer Support Triage", blockId: "mb-001", timestamp: "2026-02-13T10:30:00Z", details: "Updated 'Segment Profiles' block with revised enterprise account thresholds" },
+  { id: "maud-002", memoryId: "mem-001", action: "write", actorType: "agent", actorId: "agt-001", actorName: "Market Intelligence", blockId: "mb-003", timestamp: "2026-02-13T09:15:00Z", details: "Updated 'Product Interest Signals' with latest 30-day feature request analysis" },
+  { id: "maud-003", memoryId: "mem-001", action: "read", actorType: "agent", actorId: "agt-005", actorName: "Price Optimization", timestamp: "2026-02-13T10:32:00Z", details: "Read customer preferences for pricing personalization run" },
+  { id: "maud-004", memoryId: "mem-002", action: "write", actorType: "agent", actorId: "agt-002", actorName: "Inventory Intelligence", blockId: "mb-004", timestamp: "2026-02-14T08:00:00Z", details: "Updated 'Product Categories' with current MTD revenue figures" },
+  { id: "maud-005", memoryId: "mem-002", action: "write", actorType: "agent", actorId: "agt-002", actorName: "Inventory Intelligence", blockId: "mb-006", timestamp: "2026-02-10T14:00:00Z", details: "Updated 'Supplier Directory' with new drop-ship partner onboarding" },
+  { id: "maud-006", memoryId: "mem-003", action: "write", actorType: "agent", actorId: "agt-003", actorName: "Demand Forecasting", blockId: "mb-010", timestamp: "2026-02-10T16:00:00Z", details: "Updated 'Agent Execution Guardrails' based on Q4 incident review" },
+  { id: "maud-007", memoryId: "mem-003", action: "read", actorType: "agent", actorId: "agt-004", actorName: "Customer Support Triage", timestamp: "2026-02-13T14:28:00Z", details: "Checked PII handling rules during ticket classification" },
+  { id: "maud-008", memoryId: "mem-005", action: "create", actorType: "user", actorId: "usr-001", actorName: "Jordan Reeves", timestamp: "2025-08-01T10:00:00Z", details: "Created 'Company Context' memory with initial company overview" },
+  { id: "maud-009", memoryId: "mem-002", action: "attach", actorType: "user", actorId: "usr-001", actorName: "Jordan Reeves", timestamp: "2025-11-20T09:00:00Z", details: "Attached Demand Forecasting agent to Product Catalog memory" },
+  { id: "maud-010", memoryId: "mem-006", action: "create", actorType: "user", actorId: "usr-001", actorName: "Jordan Reeves", timestamp: "2026-01-10T09:00:00Z", details: "Created 'Q4 Strategy' memory with restricted access" },
+  { id: "maud-011", memoryId: "mem-004", action: "share", actorType: "user", actorId: "usr-001", actorName: "Jordan Reeves", timestamp: "2025-12-15T10:00:00Z", details: "Shared 'Sales Playbook' with Sales Team (editor role)" },
+  { id: "maud-012", memoryId: "mem-001", action: "attach", actorType: "user", actorId: "usr-002", actorName: "Sarah Chen", timestamp: "2026-01-05T14:00:00Z", details: "Attached Price Optimization agent to Customer Preferences memory" },
+  { id: "maud-013", memoryId: "mem-002", action: "read", actorType: "agent", actorId: "agt-003", actorName: "Demand Forecasting", timestamp: "2026-02-14T06:02:00Z", details: "Queried product catalog for category-level demand data during forecast run" },
+  { id: "maud-014", memoryId: "mem-003", action: "read", actorType: "user", actorId: "usr-004", actorName: "Priya Patel", timestamp: "2026-02-12T09:00:00Z", details: "Reviewed compliance rules during quarterly audit" },
+  { id: "maud-015", memoryId: "mem-006", action: "write", actorType: "user", actorId: "usr-001", actorName: "Jordan Reeves", blockId: "mb-017", timestamp: "2026-02-14T15:00:00Z", details: "Updated competitive intelligence with GlobalParts acquisition details" },
+];
+
+// ─── Policies ───
+
+export const policies: Policy[] = [
+  {
+    id: "pol-001",
+    name: "PII Auto-Redaction & Detection",
+    code: "DHP-003",
+    description: "Organization-wide policy that detects personally identifiable information in agent outputs and automatically redacts or blocks transmission to external APIs. Covers SSN, credit card numbers, email addresses, phone numbers, and other PII patterns defined by compliance.",
+    type: "data-handling",
+    scope: "organization",
+    rules: [
+      {
+        id: "pr-001",
+        description: "Detect PII patterns (SSN, credit card, email, phone) in agent output and deny transmission",
+        condition: { outputContains: ["ssn", "credit-card", "email-address", "phone-number"], target: "external-api" },
+        effect: "deny",
+        priority: 1,
+      },
+      {
+        id: "pr-002",
+        description: "Auto-kill agent session on confirmed PII leak to external API",
+        condition: { event: "pii-leak-confirmed", target: "external-api" },
+        effect: "escalate",
+        approvalChain: ["security-admin"],
+        priority: 0,
+      },
+    ],
+    attachedTo: [
+      { targetType: "organization", targetId: "org-001", targetName: "Acme Electronics", attachedAt: "2025-09-15T10:00:00Z", attachedBy: "Jordan Reeves" },
+    ],
+    status: "active",
+    version: 3,
+    createdBy: "Jordan Reeves",
+    createdAt: "2025-07-10T09:00:00Z",
+    updatedAt: "2026-01-20T14:30:00Z",
+  },
+  {
+    id: "pol-002",
+    name: "Auto-Approve Read-Only Access",
+    code: "JIT-AUTO-001",
+    description: "Automatically approves JIT access requests when the requested permission is data:read and the target resource sensitivity is public or internal. Grants are time-limited to 60 minutes.",
+    type: "authorization",
+    scope: "organization",
+    rules: [
+      {
+        id: "pr-003",
+        description: "Auto-approve when permission is data:read and resource sensitivity is public or internal",
+        condition: { permission: "data:read", sensitivity: ["public", "internal"] },
+        effect: "allow",
+        ttlMinutes: 60,
+        priority: 1,
+      },
+    ],
+    attachedTo: [
+      { targetType: "organization", targetId: "org-001", targetName: "Acme Electronics", attachedAt: "2025-11-01T10:00:00Z", attachedBy: "Jordan Reeves" },
+    ],
+    status: "active",
+    version: 2,
+    createdBy: "Jordan Reeves",
+    createdAt: "2025-10-15T11:00:00Z",
+    updatedAt: "2026-01-05T09:00:00Z",
+  },
+  {
+    id: "pol-003",
+    name: "Write Operation Escalation",
+    code: "JIT-ESCL-002",
+    description: "Requires human approval for any JIT request involving data:write or data:delete permissions. Escalates to the security admin for review before granting access.",
+    type: "authorization",
+    scope: "organization",
+    rules: [
+      {
+        id: "pr-004",
+        description: "Require human approval for data:write and data:delete operations",
+        condition: { permission: ["data:write", "data:delete"] },
+        effect: "require-approval",
+        approvalChain: ["security-admin"],
+        priority: 1,
+      },
+    ],
+    attachedTo: [
+      { targetType: "organization", targetId: "org-001", targetName: "Acme Electronics", attachedAt: "2025-11-01T10:00:00Z", attachedBy: "Jordan Reeves" },
+    ],
+    status: "active",
+    version: 1,
+    createdBy: "Jordan Reeves",
+    createdAt: "2025-11-01T10:00:00Z",
+    updatedAt: "2025-11-01T10:00:00Z",
+  },
+  {
+    id: "pol-004",
+    name: "Confidential Memory Restricted Access",
+    code: "MEM-ACC-001",
+    description: "Controls access to memory instances with confidential or restricted sensitivity. Denies access by default unless the requesting principal has a security-admin or org-admin role. Agent-operators may request access through an approval workflow with a 30-minute TTL.",
+    type: "access",
+    scope: "organization",
+    rules: [
+      {
+        id: "pr-005",
+        description: "Deny access to confidential/restricted memory unless principal has security-admin or org-admin role",
+        condition: { sensitivity: ["confidential", "restricted"], principalRole: { notIn: ["security-admin", "org-admin"] } },
+        effect: "deny",
+        priority: 1,
+      },
+      {
+        id: "pr-006",
+        description: "Allow agent-operator access to confidential memory with approval and 30-minute TTL",
+        condition: { sensitivity: ["confidential", "restricted"], principalRole: "agent-operator" },
+        effect: "require-approval",
+        approvalChain: ["security-admin", "org-admin"],
+        ttlMinutes: 30,
+        priority: 2,
+      },
+    ],
+    attachedTo: [
+      { targetType: "organization", targetId: "org-001", targetName: "Acme Electronics", attachedAt: "2025-10-01T09:00:00Z", attachedBy: "Jordan Reeves" },
+      { targetType: "memory", targetId: "mem-003", targetName: "Compliance Rules", attachedAt: "2025-10-01T09:30:00Z", attachedBy: "Jordan Reeves" },
+      { targetType: "memory", targetId: "mem-006", targetName: "Q4 Strategy", attachedAt: "2026-01-10T09:00:00Z", attachedBy: "Jordan Reeves" },
+    ],
+    status: "active",
+    version: 2,
+    createdBy: "Jordan Reeves",
+    createdAt: "2025-09-20T14:00:00Z",
+    updatedAt: "2026-01-10T09:00:00Z",
+  },
+  {
+    id: "pol-005",
+    name: "Agent Execution Guardrails",
+    code: "EXEC-001",
+    description: "Organization-wide execution guardrails that enforce cost limits, error rate thresholds, and recursion depth caps on all agent runs. Designed to prevent runaway agents and contain blast radius.",
+    type: "execution",
+    scope: "organization",
+    rules: [
+      {
+        id: "pr-007",
+        description: "Deny execution if hourly cost exceeds $100",
+        condition: { metric: "hourly-cost", operator: "gt", threshold: 100 },
+        effect: "deny",
+        priority: 1,
+      },
+      {
+        id: "pr-008",
+        description: "Escalate if agent error rate exceeds 15% over rolling 1-hour window",
+        condition: { metric: "error-rate", operator: "gt", threshold: 0.15, window: "1h" },
+        effect: "escalate",
+        approvalChain: ["agent-operator", "security-admin"],
+        priority: 2,
+      },
+      {
+        id: "pr-009",
+        description: "Deny if recursion depth exceeds 5 levels",
+        condition: { metric: "recursion-depth", operator: "gt", threshold: 5 },
+        effect: "deny",
+        priority: 1,
+      },
+    ],
+    attachedTo: [
+      { targetType: "organization", targetId: "org-001", targetName: "Acme Electronics", attachedAt: "2025-08-01T10:00:00Z", attachedBy: "Jordan Reeves" },
+    ],
+    status: "active",
+    version: 4,
+    createdBy: "Jordan Reeves",
+    createdAt: "2025-07-01T10:00:00Z",
+    updatedAt: "2026-02-10T16:00:00Z",
+  },
+  {
+    id: "pol-006",
+    name: "Critical Error Auto-Kill",
+    code: "ESCL-001",
+    description: "Escalation policy that automatically kills agent sessions after 3 or more consecutive errors or when anomaly detection scores exceed 0.9, indicating abnormal agent behavior.",
+    type: "escalation",
+    scope: "organization",
+    rules: [
+      {
+        id: "pr-010",
+        description: "Auto-kill agent on 3+ consecutive errors",
+        condition: { metric: "consecutive-errors", operator: "gte", threshold: 3 },
+        effect: "escalate",
+        approvalChain: ["agent-operator"],
+        priority: 0,
+      },
+      {
+        id: "pr-011",
+        description: "Auto-kill on anomaly detection score > 0.9",
+        condition: { metric: "anomaly-score", operator: "gt", threshold: 0.9 },
+        effect: "escalate",
+        approvalChain: ["security-admin"],
+        priority: 0,
+      },
+    ],
+    attachedTo: [
+      { targetType: "organization", targetId: "org-001", targetName: "Acme Electronics", attachedAt: "2025-08-15T09:00:00Z", attachedBy: "Jordan Reeves" },
+    ],
+    status: "active",
+    version: 1,
+    createdBy: "Priya Patel",
+    createdAt: "2025-08-15T09:00:00Z",
+    updatedAt: "2025-08-15T09:00:00Z",
+  },
+  {
+    id: "pol-007",
+    name: "Cross-Team Memory Sharing",
+    code: "MEM-SHARE-001",
+    description: "Controls how memory instances can be shared across teams. Public memory can be shared freely, while internal-sensitivity memory requires approval from the memory owner or a security admin.",
+    type: "access",
+    scope: "team",
+    rules: [
+      {
+        id: "pr-012",
+        description: "Allow sharing of public-sensitivity memory across teams",
+        condition: { action: "share", sensitivity: "public", targetType: "team" },
+        effect: "allow",
+        priority: 1,
+      },
+      {
+        id: "pr-013",
+        description: "Require approval for sharing internal-sensitivity memory across teams",
+        condition: { action: "share", sensitivity: "internal", targetType: "team" },
+        effect: "require-approval",
+        approvalChain: ["memory-owner", "security-admin"],
+        priority: 2,
+      },
+    ],
+    attachedTo: [
+      { targetType: "team", targetId: "team-sales", targetName: "Sales Team", attachedAt: "2026-02-01T10:00:00Z", attachedBy: "Sarah Chen" },
+    ],
+    status: "draft",
+    version: 1,
+    createdBy: "Sarah Chen",
+    createdAt: "2026-02-01T10:00:00Z",
+    updatedAt: "2026-02-01T10:00:00Z",
+  },
+];

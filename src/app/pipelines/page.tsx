@@ -26,7 +26,7 @@ import {
 	type Pipeline,
 	pipelines,
 } from "@/data/mock";
-import { cn, timeAgo } from "@/lib/utils";
+import { cn, timeAgo, primaryBtnClass } from "@/lib/utils";
 
 const statusConfig = {
 	active: { dotColor: "bg-emerald-400", label: "Active" },
@@ -378,7 +378,7 @@ const DetailPanel = ({
 								</span>
 								<button
 									type="button"
-									className="bg-accent hover:bg-accent-hover text-white rounded-md px-3 py-1 text-[11px] font-medium transition-colors"
+									className={cn("rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}
 								>
 									Save & Deploy
 								</button>
@@ -663,7 +663,7 @@ const PipelinesPage = () => {
 				actions={
 					<button
 						type="button"
-						className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg px-4 py-2 text-[13px] font-medium transition-colors"
+						className={cn("flex items-center gap-2 rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}
 					>
 						<Plus size={15} />
 						New Pipeline

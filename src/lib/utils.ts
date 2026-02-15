@@ -44,6 +44,22 @@ export const timeAgo = (date: string): string => {
   return `${Math.floor(seconds / 86400)}d ago`;
 };
 
+export const shortDate = (date: string): string => {
+  const d = new Date(date);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }) + " at " + d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+export const primaryBtnClass =
+  "bg-accent/20 hover:bg-accent/30 text-accent font-medium transition-colors";
+
 export const getGreeting = (): string => {
   const hour = 14; // mock: afternoon
   if (hour < 12) return "Good morning";

@@ -26,16 +26,14 @@ import {
   type JitGrant,
   type JitStatus,
 } from "@/data/mock";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, primaryBtnClass } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
-import { Toggle } from "@/components/toggle";
 
 const tabs = [
   { key: "general", label: "General", icon: Settings2 },
   { key: "accounts", label: "Accounts", icon: Users },
   { key: "api-keys", label: "API Keys", icon: Key },
-  { key: "governance", label: "Governance", icon: Shield },
   { key: "notifications", label: "Notifications", icon: Bell },
 ] as const;
 
@@ -150,7 +148,7 @@ const GeneralTab = () => (
     </div>
 
     <div className="mt-8 pt-5 border-t border-border-subtle">
-      <button className="bg-accent hover:bg-accent-hover text-white rounded-lg px-5 py-2 text-[13px] font-medium transition-colors">
+      <button className={cn("rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}>
         Save Changes
       </button>
     </div>
@@ -250,7 +248,7 @@ const DirectorySubTab = () => {
           ))}
         </div>
 
-        <button className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg px-4 py-2 text-[13px] font-medium transition-colors">
+        <button className={cn("flex items-center gap-2 rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}>
           <Plus size={15} />
           Add Account
         </button>
@@ -762,7 +760,7 @@ const ApiKeysTab = () => (
   <div>
     <div className="flex items-center justify-between mb-4">
       <h2 className="text-[15px] font-medium text-text-primary">API Keys</h2>
-      <button className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg px-4 py-2 text-[13px] font-medium transition-colors">
+      <button className={cn("flex items-center gap-2 rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}>
         <Key size={15} />
         Generate New Key
       </button>
@@ -812,88 +810,6 @@ const ApiKeysTab = () => (
           </div>
         </div>
       ))}
-    </div>
-  </div>
-);
-
-// ─── Governance Tab ───
-
-const GovernanceTab = () => (
-  <div className="space-y-4 max-w-2xl">
-    <div className="bg-bg-secondary border border-border-subtle rounded-xl p-6">
-      <h2 className="text-[15px] font-medium text-text-primary mb-5">
-        Kill Switch & Guardrails
-      </h2>
-
-      <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[13px] text-text-primary font-medium">
-              Global Kill Switch
-            </p>
-            <p className="text-[11px] text-text-muted mt-0.5">
-              Immediately halt all running agents
-            </p>
-          </div>
-          <Toggle on={false} />
-        </div>
-
-        <div className="border-t border-border-subtle" />
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Max Cost per Hour</label>
-            <input className={inputClass} defaultValue="$100" readOnly />
-          </div>
-          <div>
-            <label className={labelClass}>Max Error Rate</label>
-            <input className={inputClass} defaultValue="15%" readOnly />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[13px] text-text-primary font-medium">
-              Anomaly Detection
-            </p>
-            <p className="text-[11px] text-text-muted mt-0.5">
-              Auto-pause agents on unusual behavior patterns
-            </p>
-          </div>
-          <Toggle on={true} />
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-bg-secondary border border-border-subtle rounded-xl p-6">
-      <h2 className="text-[15px] font-medium text-text-primary mb-5">
-        Compliance
-      </h2>
-
-      <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[13px] text-text-primary font-medium">
-              Audit Log Export
-            </p>
-            <p className="text-[11px] text-text-muted mt-0.5">
-              Download complete audit trail as CSV
-            </p>
-          </div>
-          <button className="text-[12px] text-accent hover:text-accent-hover font-medium transition-colors">
-            Export
-          </button>
-        </div>
-
-        <div className="border-t border-border-subtle" />
-
-        <div>
-          <label className={labelClass}>Retention Policy</label>
-          <select className={inputClass}>
-            <option>90 days — Standard</option>
-          </select>
-        </div>
-      </div>
     </div>
   </div>
 );
@@ -1004,7 +920,6 @@ const tabContent: Record<TabKey, () => React.ReactElement> = {
   general: GeneralTab,
   accounts: AccountsTab,
   "api-keys": ApiKeysTab,
-  governance: GovernanceTab,
   notifications: NotificationsTab,
 };
 

@@ -28,7 +28,7 @@ import {
   type Integration,
   type IntegrationSource,
 } from "@/data/mock";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, primaryBtnClass } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Toggle } from "@/components/toggle";
@@ -600,7 +600,7 @@ const DetailPanel = ({
           {integration.transport === "http" ? "MCP · HTTP" : integration.transport === "stdio" ? "MCP · stdio" : "Native"} ·{" "}
           {integration.version ? `v${integration.version}` : "latest"}
         </span>
-        <button className="bg-accent hover:bg-accent-hover text-white rounded-md px-3 py-1 text-[11px] font-medium transition-colors">
+        <button className={cn("rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}>
           Save Changes
         </button>
       </div>

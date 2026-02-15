@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { modelProviders } from "@/data/mock";
-import { formatNumber, formatCurrency } from "@/lib/utils";
+import { cn, formatNumber, formatCurrency, primaryBtnClass } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 
 const providerColors: Record<string, string> = {
@@ -28,7 +28,7 @@ const ModelsPage = () => {
         title="Models"
         subtitle="Model provider configurations via LiteLLM proxy"
         actions={
-          <button className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg px-4 py-2 text-[13px] font-medium transition-colors">
+          <button className={cn("flex items-center gap-2 rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}>
             <Plus size={15} />
             Add Provider
           </button>
@@ -172,9 +172,11 @@ const ModelsPage = () => {
                 </div>
               </div>
 
-              <button className="mt-4 w-full text-center text-accent text-[13px] font-medium py-2 rounded-lg border border-border-subtle hover:border-accent transition-colors">
-                Configure
-              </button>
+              <div className="mt-4 flex justify-end">
+                <button className="text-accent text-[11px] font-medium px-3 py-1 rounded-md border border-border-subtle hover:border-accent transition-colors">
+                  Configure
+                </button>
+              </div>
             </div>
           );
         })}
