@@ -15,6 +15,8 @@ import {
   MessageSquare,
   ArrowUpCircle,
   Shield,
+  Copy,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +38,14 @@ const systemNav = [
   { href: "/settings", label: "Settings", icon: SlidersHorizontal },
 ];
 
+const ACRONYMS = new Set(["ai", "api", "sdk", "id", "ui", "ml"]);
+const humanize = (s: string) =>
+  s
+    .replace(/-/g, " ")
+    .replace(/\b\w+/g, (w) =>
+      ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)
+    );
+
 const PLATFORM_VERSION = "0.0.11";
 const PLATFORM_COMMIT = "c825ccd";
 const SDK_VERSION = "1.4.0";
@@ -46,6 +56,7 @@ export const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [showVersions, setShowVersions] = useState(false);
+  const [copied, setCopied] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const brandRef = useRef<HTMLButtonElement>(null);
 
@@ -131,16 +142,32 @@ export const Sidebar = () => {
         {showVersions && (
           <div
             ref={popoverRef}
-            className="absolute top-[60px] left-0 w-[320px] bg-bg-secondary border border-border-subtle rounded-lg shadow-2xl z-[60] overflow-hidden"
+            className="absolute top-[64px] left-3 w-[300px] rounded-xl border border-white/[0.12] bg-white/[0.06] backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.04)_inset] z-[60] overflow-hidden"
           >
             {/* Header */}
-            <div className="px-4 py-3 border-b border-border-subtle">
-              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-white/50">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08]">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/40">
                 Version Information
               </span>
+              <button
+                onClick={() => {
+                  const text = [
+                    `Kraken AI Platform v${PLATFORM_VERSION} (${PLATFORM_COMMIT})`,
+                    `Kraken AI SDK v${SDK_VERSION} (${SDK_COMMIT})`,
+                    `Python Runtime ${PYTHON_RUNTIME}`,
+                  ].join("\n");
+                  void navigator.clipboard.writeText(text).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  });
+                }}
+                className="p-1 rounded-md text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-colors duration-150"
+              >
+                {copied ? <Check size={13} strokeWidth={1.5} className="text-accent/70" /> : <Copy size={13} strokeWidth={1.5} />}
+              </button>
             </div>
 
-            <div className="p-4 flex flex-col gap-4">
+            <div className="p-4 flex flex-col gap-3.5">
               {/* Platform & SDK */}
               <div className="flex flex-col gap-2">
                 <VersionRow
@@ -149,19 +176,21 @@ export const Sidebar = () => {
                   commit={PLATFORM_COMMIT}
                 />
                 <VersionRow
-                  label="kraken-ai SDK"
+                  label="Kraken AI SDK"
                   version={SDK_VERSION}
                   commit={SDK_COMMIT}
                 />
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-white/60">Python Runtime</span>
-                  <span className="font-mono text-[11px] text-white/50">{PYTHON_RUNTIME}</span>
+                  <span className="text-[12px] text-white/55">Python Runtime</span>
+                  <span className="font-mono text-[11px] text-white/40">{PYTHON_RUNTIME}</span>
                 </div>
               </div>
 
+              <div className="h-px bg-white/[0.06]" />
+
               {/* Plugin Marketplaces */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-white/40">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/35">
                   Plugin Marketplaces
                 </span>
                 {pluginMarketplaces.map((m) => (
@@ -169,14 +198,18 @@ export const Sidebar = () => {
                     key={m.id}
                     name={m.name}
                     version={m.version}
+                    commit={m.commit}
+                    source={m.source}
                     updateAvailable={m.updateAvailable}
                   />
                 ))}
               </div>
 
+              <div className="h-px bg-white/[0.06]" />
+
               {/* Agent Marketplaces */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-white/40">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-white/35">
                   Agent Marketplaces
                 </span>
                 {agentMarketplaces.map((m) => (
@@ -184,6 +217,8 @@ export const Sidebar = () => {
                     key={m.id}
                     name={m.name}
                     version={m.version}
+                    commit={m.commit}
+                    source={m.source}
                     updateAvailable={m.updateAvailable}
                   />
                 ))}
@@ -256,12 +291,12 @@ const VersionRow = ({
   commit: string;
 }) => (
   <div className="flex items-center justify-between">
-    <span className="text-[12px] text-white/60">{label}</span>
+    <span className="text-[12px] text-white/55">{label}</span>
     <div className="flex items-center gap-2">
-      <span className="font-mono text-[11px] text-white/50">v{version}</span>
-      <span className="font-mono text-[10px] text-white/30 bg-white/[0.06] px-1.5 py-0.5 rounded">
+      <span className="font-mono text-[10px] text-white/30 bg-white/[0.05] px-1.5 py-0.5 rounded-md">
         {commit}
       </span>
+      <span className="font-mono text-[11px] text-accent/60">v{version}</span>
     </div>
   </div>
 );
@@ -269,22 +304,36 @@ const VersionRow = ({
 const MarketplaceRow = ({
   name,
   version,
+  commit,
+  source,
   updateAvailable,
 }: {
   name: string;
   version: string;
+  commit: string;
+  source: string;
   updateAvailable?: string;
-}) => (
-  <div className="flex items-center justify-between">
-    <span className="text-[12px] text-white/60">{name}</span>
-    <div className="flex items-center gap-2">
-      <span className="font-mono text-[11px] text-white/50">v{version}</span>
-      {updateAvailable && (
-        <span className="flex items-center gap-1 font-mono text-[10px] text-amber-400/80">
-          <ArrowUpCircle size={10} />
-          {updateAvailable}
+}) => {
+  const isKraken = source === "kraken";
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-[12px] text-white/55">{humanize(name)}</span>
+        {updateAvailable && (
+          <span className="flex items-center gap-1 font-mono text-[10px] text-amber-400/70">
+            <ArrowUpCircle size={10} />
+            update
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] text-white/30 bg-white/[0.05] px-1.5 py-0.5 rounded-md">
+          {commit}
         </span>
-      )}
+        <span className={cn("font-mono text-[11px]", isKraken ? "text-accent/60" : "text-white/40")}>
+          v{version}
+        </span>
+      </div>
     </div>
-  </div>
-);
+  );
+};

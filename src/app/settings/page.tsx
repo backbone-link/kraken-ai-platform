@@ -15,6 +15,12 @@ import {
   ShieldCheck,
   CheckCircle,
   Timer,
+  Lock,
+  RefreshCw,
+  Globe,
+  Fingerprint,
+  Trash2,
+  Network,
 } from "lucide-react";
 import {
   accounts,
@@ -29,9 +35,11 @@ import {
 import { timeAgo, primaryBtnClass } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
+import { Toggle } from "@/components/toggle";
 
 const tabs = [
   { key: "general", label: "General", icon: Settings2 },
+  { key: "security", label: "Security", icon: Shield },
   { key: "accounts", label: "Accounts", icon: Users },
   { key: "api-keys", label: "API Keys", icon: Key },
   { key: "notifications", label: "Notifications", icon: Bell },
@@ -126,7 +134,7 @@ const GeneralTab = () => (
         <label className={labelClass}>Platform URL</label>
         <input
           className={inputClass}
-          defaultValue="https://kraken.acme-electronics.com"
+          defaultValue="https://acme-electronics.kraken-ai.com"
           readOnly
         />
       </div>
@@ -154,6 +162,240 @@ const GeneralTab = () => (
     </div>
   </div>
 );
+
+// ─── Security Tab ───
+
+const SecurityStatusRow = ({
+  label,
+  value,
+  status,
+  icon: Icon,
+  detail,
+}: {
+  label: string;
+  value: string;
+  status: "active" | "scheduled" | "info";
+  icon: typeof Lock;
+  detail?: string;
+}) => (
+  <div className="flex items-center justify-between py-3">
+    <div className="flex items-center gap-3">
+      <div className="p-1.5 bg-bg-tertiary rounded-lg">
+        <Icon size={14} className="text-text-secondary" />
+      </div>
+      <div>
+        <p className="text-[13px] text-text-primary font-medium">{label}</p>
+        {detail && (
+          <p className="text-[11px] text-text-muted mt-0.5">{detail}</p>
+        )}
+      </div>
+    </div>
+    <div className="flex items-center gap-2.5">
+      <span className="text-[12px] font-mono text-text-secondary">{value}</span>
+      <span
+        className={cn(
+          "text-[10px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1",
+          status === "active"
+            ? "bg-emerald-400/15 text-emerald-400"
+            : status === "scheduled"
+              ? "bg-sky-400/15 text-sky-400"
+              : "bg-bg-tertiary text-text-muted"
+        )}
+      >
+        {status === "active" && <CheckCircle size={10} />}
+        {status === "active" ? "Active" : status === "scheduled" ? "Scheduled" : "Configured"}
+      </span>
+    </div>
+  </div>
+);
+
+const ipAllowlistDefaults = [
+  { cidr: "10.0.0.0/8", label: "Corporate VPN", addedBy: "Jordan Reeves", added: "2025-11-02" },
+  { cidr: "172.16.24.0/24", label: "SF Office", addedBy: "Jordan Reeves", added: "2025-11-02" },
+];
+
+const SecurityTab = ({ onNavigate }: { onNavigate: (tab: TabKey) => void }) => {
+  const [ipEnforced, setIpEnforced] = useState(true);
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      {/* Encryption */}
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Lock size={15} className="text-text-secondary" />
+          <h2 className="text-[15px] font-medium text-text-primary">Encryption</h2>
+        </div>
+
+        <div className="divide-y divide-border-subtle">
+          <SecurityStatusRow
+            icon={Lock}
+            label="Data at Rest"
+            value="AES-256-GCM"
+            status="active"
+            detail="All stored data encrypted via AWS KMS managed keys"
+          />
+          <SecurityStatusRow
+            icon={Globe}
+            label="Data in Transit"
+            value="TLS 1.3"
+            status="active"
+            detail="All API and inter-service communication"
+          />
+          <SecurityStatusRow
+            icon={RefreshCw}
+            label="Key Rotation"
+            value="Every 90 days"
+            status="scheduled"
+            detail="Next rotation: Mar 12, 2026"
+          />
+        </div>
+      </div>
+
+      {/* Identity Provider */}
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <Fingerprint size={15} className="text-text-secondary" />
+            <h2 className="text-[15px] font-medium text-text-primary">Identity Provider</h2>
+          </div>
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-400/15 text-emerald-400 flex items-center gap-1">
+            <CheckCircle size={10} />
+            Connected
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 mb-5">
+          <div className="bg-bg-tertiary/50 rounded-lg px-4 py-3">
+            <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">SSO</p>
+            <p className="text-[13px] text-text-primary font-medium">Okta</p>
+            <p className="text-[11px] text-text-muted">SAML 2.0</p>
+          </div>
+          <div className="bg-bg-tertiary/50 rounded-lg px-4 py-3">
+            <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Directory Sync</p>
+            <p className="text-[13px] text-text-primary font-medium">Active</p>
+            <p className="text-[11px] text-text-muted">Last sync: 2h ago</p>
+          </div>
+          <div className="bg-bg-tertiary/50 rounded-lg px-4 py-3">
+            <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">MFA</p>
+            <p className="text-[13px] text-text-primary font-medium">Enforced</p>
+            <p className="text-[11px] text-text-muted">Managed by IdP</p>
+          </div>
+        </div>
+
+        <a
+          href="https://admin.kraken-ai.com/identity"
+          className="text-[12px] text-accent hover:text-accent/80 transition-colors flex items-center gap-1.5"
+        >
+          Manage in Admin Console
+          <Globe size={12} />
+        </a>
+      </div>
+
+      {/* IP Allowlist */}
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <Network size={15} className="text-text-secondary" />
+            <h2 className="text-[15px] font-medium text-text-primary">IP Allowlist</h2>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className={cn(
+              "text-[10px] font-medium",
+              ipEnforced ? "text-emerald-400" : "text-text-muted"
+            )}>
+              {ipEnforced ? "Enforced" : "Disabled"}
+            </span>
+            <Toggle on={ipEnforced} onChange={() => setIpEnforced(!ipEnforced)} />
+          </div>
+        </div>
+
+        <p className="text-[11px] text-text-muted mb-4">
+          Restrict access to the Kraken AI platform and SDK endpoints to approved IP addresses and CIDR ranges.
+        </p>
+
+        <div className={cn(
+          "divide-y divide-border-subtle rounded-lg border border-border-subtle overflow-hidden",
+          !ipEnforced && "opacity-50 pointer-events-none"
+        )}>
+          {ipAllowlistDefaults.map((entry) => (
+            <div key={entry.cidr} className="flex items-center justify-between px-4 py-3 bg-bg-tertiary/30">
+              <div className="flex items-center gap-3">
+                <span className="text-[13px] font-mono text-text-primary">{entry.cidr}</span>
+                <span className="text-[11px] text-text-muted">{entry.label}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-text-muted">
+                  by{" "}
+                  <button
+                    onClick={() => onNavigate("accounts")}
+                    className="text-accent hover:text-accent/80 transition-colors"
+                  >
+                    {entry.addedBy}
+                  </button>
+                  {" · "}
+                  <span className="font-mono">
+                    {new Date(entry.added).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </span>
+                <button className="text-text-muted hover:text-red-400 transition-colors">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          className={cn(
+            "mt-4 flex items-center gap-1.5 text-[12px] text-accent hover:text-accent/80 transition-colors",
+            !ipEnforced && "opacity-50 pointer-events-none"
+          )}
+        >
+          <Plus size={13} />
+          Add IP Range
+        </button>
+      </div>
+
+      {/* Application Security */}
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <ShieldCheck size={15} className="text-text-secondary" />
+          <h2 className="text-[15px] font-medium text-text-primary">Application Security</h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Re-auth for Sensitive Operations</label>
+            <select className={inputClass} defaultValue="enabled">
+              <option value="enabled">Enabled</option>
+              <option value="disabled">Disabled</option>
+            </select>
+            <p className="text-[10px] text-text-muted mt-1">
+              Require re-authentication for kill switch, JIT approval, policy changes
+            </p>
+          </div>
+          <div>
+            <label className={labelClass}>Session Binding</label>
+            <select className={inputClass} defaultValue="ip-ua">
+              <option value="ip-ua">IP + User-Agent</option>
+              <option value="ip">IP only</option>
+              <option value="none">None</option>
+            </select>
+            <p className="text-[10px] text-text-muted mt-1">
+              Bind sessions to client fingerprint to prevent hijacking
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-border-subtle">
+          <button className={cn("rounded-md px-3 py-1.5 text-[11px]", primaryBtnClass)}>
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ─── Accounts Tab ───
 
@@ -916,7 +1158,7 @@ const NotificationsTab = () => (
 
 // ─── Tab Content Map ───
 
-const tabContent: Record<TabKey, () => React.ReactElement> = {
+const tabContent: Record<Exclude<TabKey, "security">, () => React.ReactElement> = {
   general: GeneralTab,
   accounts: AccountsTab,
   "api-keys": ApiKeysTab,
@@ -928,7 +1170,7 @@ const tabContent: Record<TabKey, () => React.ReactElement> = {
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("general");
 
-  const ActiveContent = tabContent[activeTab];
+  const ActiveContent = activeTab !== "security" ? tabContent[activeTab] : null;
 
   return (
     <div>
@@ -954,7 +1196,10 @@ const SettingsPage = () => {
         ))}
       </div>
 
-      <ActiveContent />
+      {activeTab === "security"
+        ? <SecurityTab onNavigate={setActiveTab} />
+        : ActiveContent && <ActiveContent />
+      }
     </div>
   );
 };

@@ -1,3 +1,37 @@
+// ─── Incident Types ───
+
+export type IncidentSeverity = "critical" | "high" | "medium" | "low";
+export type IncidentStatus = "open" | "investigating" | "acknowledged" | "resolved" | "closed";
+export type IncidentSourceType = "guardrail" | "alert-rule" | "anomaly-detection" | "policy-engine" | "manual";
+
+export interface IncidentTimelineEvent {
+  timestamp: string;
+  actor: string;
+  action: string;
+  detail: string;
+}
+
+export interface Incident {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  createdAt: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+  closedAt?: string;
+  assignee: { name: string; role: AccountRole };
+  sourceAgent: { name: string; id: string };
+  sourceType: IncidentSourceType;
+  timeline: IncidentTimelineEvent[];
+  postmortem?: string;
+  relatedRunId?: string;
+  impactAssessment?: string;
+  rootCause?: string;
+}
+
 // ─── Agent Types ───
 
 export type AgentStatus = "running" | "idle" | "error" | "paused" | "killed";
@@ -229,6 +263,7 @@ export interface PluginMarketplace {
   installedCount: number;
   connected: boolean;
   version: string;
+  commit: string;
   updateAvailable?: string;
 }
 
@@ -242,6 +277,7 @@ export interface AgentMarketplace {
   installedCount: number;
   connected: boolean;
   version: string;
+  commit: string;
   updateAvailable?: string;
 }
 
@@ -622,6 +658,7 @@ export const agentMarketplaces: AgentMarketplace[] = [
     installedCount: 3,
     connected: true,
     version: "2.4.0",
+    commit: "e7b41d0",
   },
   {
     id: "amarketplace-commerce-ai",
@@ -633,6 +670,7 @@ export const agentMarketplaces: AgentMarketplace[] = [
     installedCount: 2,
     connected: true,
     version: "1.2.1",
+    commit: "f92a3c1",
     updateAvailable: "1.3.0",
   },
   {
@@ -645,6 +683,7 @@ export const agentMarketplaces: AgentMarketplace[] = [
     installedCount: 0,
     connected: true,
     version: "0.9.0",
+    commit: "81dc5f3",
   },
 ];
 
@@ -939,7 +978,7 @@ export const auditTrail: AuditEntry[] = [
 export const pluginMarketplaces: PluginMarketplace[] = [
   {
     id: "marketplace-kraken",
-    name: "Kraken Verified",
+    name: "Kraken Official",
     source: "kraken",
     url: "https://plugins.kraken-ai.com",
     description: "Official connectors maintained and verified by the Kraken AI team",
@@ -947,6 +986,7 @@ export const pluginMarketplaces: PluginMarketplace[] = [
     installedCount: 10,
     connected: true,
     version: "3.1.0",
+    commit: "b4e27a9",
   },
   {
     id: "marketplace-internal",
@@ -958,6 +998,7 @@ export const pluginMarketplaces: PluginMarketplace[] = [
     installedCount: 2,
     connected: true,
     version: "0.5.1",
+    commit: "d03f8e2",
   },
   {
     id: "marketplace-community-ecom",
@@ -969,6 +1010,7 @@ export const pluginMarketplaces: PluginMarketplace[] = [
     installedCount: 3,
     connected: true,
     version: "1.2.4",
+    commit: "7ca91b6",
     updateAvailable: "1.3.0",
   },
 ];
@@ -2918,5 +2960,119 @@ export const policies: Policy[] = [
     createdBy: "Sarah Chen",
     createdAt: "2026-02-01T10:00:00Z",
     updatedAt: "2026-02-01T10:00:00Z",
+  },
+];
+
+// ─── Incidents ───
+
+export const incidents: Incident[] = [
+  {
+    id: "inc-001",
+    code: "INC-001",
+    title: "PII Exposure in Agent Output",
+    description: "Customer Support Triage agent included customer SSN and email address in a generated response. Auto-detected by the PII guardrail and agent was immediately killed.",
+    severity: "critical",
+    status: "resolved",
+    createdAt: "2026-02-12T09:14:00Z",
+    acknowledgedAt: "2026-02-12T09:16:00Z",
+    resolvedAt: "2026-02-12T09:32:00Z",
+    closedAt: "2026-02-12T10:00:00Z",
+    assignee: { name: "Jordan Reeves", role: "org-admin" },
+    sourceAgent: { name: "Customer Support Triage", id: "agt-005" },
+    sourceType: "guardrail",
+    relatedRunId: "drun-005",
+    impactAssessment: "One customer response contained PII before auto-kill intercepted delivery. No external exposure confirmed — response was blocked at the output guardrail layer.",
+    rootCause: "Prompt template v2.3 lacked explicit PII suppression instructions for edge-case refund scenarios involving identity verification.",
+    postmortem: "Root cause was a missing PII suppression directive in the prompt template for refund-verification flows. The guardrail correctly detected and blocked the output, and the agent was auto-killed within 2 seconds. Remediation: prompt template updated to v2.4 with explicit PII redaction instructions, and a secondary output-sanitization step was added to the agent flow. No customer data was exposed externally.",
+    timeline: [
+      { timestamp: "2026-02-12T09:14:00Z", actor: "System (PII Guardrail)", action: "Incident opened", detail: "PII detected in agent output: SSN pattern and email address found in response payload" },
+      { timestamp: "2026-02-12T09:14:01Z", actor: "System (Auto-Kill)", action: "Agent killed", detail: "Customer Support Triage agent terminated — output blocked before delivery" },
+      { timestamp: "2026-02-12T09:16:00Z", actor: "Jordan Reeves", action: "Acknowledged", detail: "Investigating PII exposure scope and verifying no external delivery occurred" },
+      { timestamp: "2026-02-12T09:22:00Z", actor: "Jordan Reeves", action: "Investigation update", detail: "Confirmed output was blocked at guardrail layer. No external exposure. Reviewing prompt template." },
+      { timestamp: "2026-02-12T09:32:00Z", actor: "Jordan Reeves", action: "Resolved", detail: "Prompt template updated to v2.4 with explicit PII redaction. Secondary output-sanitization step added." },
+      { timestamp: "2026-02-12T10:00:00Z", actor: "Jordan Reeves", action: "Postmortem published", detail: "Full postmortem documented and shared with security team" },
+    ],
+  },
+  {
+    id: "inc-002",
+    code: "INC-002",
+    title: "Elevated Error Rate — Market Intelligence",
+    description: "Market Intelligence agent error rate exceeded 15% threshold sustained over 30 minutes. Root cause traced to Amazon SP-API rate limiting returning 429 responses.",
+    severity: "high",
+    status: "resolved",
+    createdAt: "2026-02-11T16:45:00Z",
+    acknowledgedAt: "2026-02-11T16:52:00Z",
+    resolvedAt: "2026-02-11T17:20:00Z",
+    assignee: { name: "Marcus Rodriguez", role: "agent-operator" },
+    sourceAgent: { name: "Market Intelligence", id: "agt-001" },
+    sourceType: "alert-rule",
+    relatedRunId: "drun-001",
+    impactAssessment: "Market pricing data was stale for approximately 35 minutes. No downstream pricing decisions were affected — Price Optimization agent had circuit breaker activated.",
+    rootCause: "Amazon SP-API rate limit was reduced from 30 req/s to 15 req/s without prior notice. Agent was configured for 25 req/s burst.",
+    postmortem: "SP-API rate limit change caused cascading 429 errors. Agent retry logic amplified the issue. Fix: reduced burst rate to 10 req/s with exponential backoff, added SP-API rate limit monitoring as a pre-check step.",
+    timeline: [
+      { timestamp: "2026-02-11T16:45:00Z", actor: "System (Alert Rule)", action: "Incident opened", detail: "Error rate alert: Market Intelligence agent at 18.3% error rate (threshold: 15%) for 30 minutes" },
+      { timestamp: "2026-02-11T16:52:00Z", actor: "Marcus Rodriguez", action: "Acknowledged", detail: "Investigating error spike. Initial review shows 429 responses from Amazon SP-API." },
+      { timestamp: "2026-02-11T17:05:00Z", actor: "Marcus Rodriguez", action: "Investigation update", detail: "Confirmed SP-API rate limit reduced. Adjusting agent rate configuration." },
+      { timestamp: "2026-02-11T17:20:00Z", actor: "Marcus Rodriguez", action: "Resolved", detail: "Rate limit adjusted to 10 req/s with exponential backoff. Error rate returned to 0.4%." },
+    ],
+  },
+  {
+    id: "inc-003",
+    code: "INC-003",
+    title: "Unauthorized JIT Escalation Attempt",
+    description: "Service account svc-demand-forecast requested data:delete permission via JIT escalation. This permission has never been requested by this agent and is outside its normal operating scope.",
+    severity: "medium",
+    status: "open",
+    createdAt: "2026-02-14T11:30:00Z",
+    assignee: { name: "Sarah Chen", role: "agent-developer" },
+    sourceAgent: { name: "Demand Forecasting", id: "agt-003" },
+    sourceType: "policy-engine",
+    impactAssessment: "No impact — escalation was blocked by the policy engine before any permission was granted. Agent continues to operate with existing permissions.",
+    timeline: [
+      { timestamp: "2026-02-14T11:30:00Z", actor: "System (Policy Engine)", action: "Incident opened", detail: "Blocked JIT escalation: svc-demand-forecast requested data:delete — permission not in allowed set and never previously requested" },
+      { timestamp: "2026-02-14T11:30:01Z", actor: "System (Policy Engine)", action: "Escalation denied", detail: "Request denied per policy POL-002 (Least Privilege Enforcement). Flagged for manual review." },
+      { timestamp: "2026-02-14T11:35:00Z", actor: "Sarah Chen", action: "Assigned", detail: "Taking ownership to investigate why Demand Forecasting agent attempted delete permission request" },
+    ],
+  },
+  {
+    id: "inc-004",
+    code: "INC-004",
+    title: "Model Provider Latency Degradation",
+    description: "Anthropic API p99 latency exceeded 5s threshold for 15 minutes during a provider-side capacity adjustment. No customer-facing impact detected.",
+    severity: "low",
+    status: "resolved",
+    createdAt: "2026-02-10T03:12:00Z",
+    acknowledgedAt: "2026-02-10T03:12:00Z",
+    resolvedAt: "2026-02-10T03:27:00Z",
+    assignee: { name: "System", role: "agent-operator" },
+    sourceAgent: { name: "Market Intelligence", id: "agt-001" },
+    sourceType: "alert-rule",
+    impactAssessment: "Marginal increase in agent run durations during the window. All runs completed successfully. No SLA breach.",
+    rootCause: "Anthropic API provider-side capacity rebalancing caused temporary latency spike.",
+    timeline: [
+      { timestamp: "2026-02-10T03:12:00Z", actor: "System (Alert Rule)", action: "Incident opened", detail: "Anthropic API p99 latency at 5.8s (threshold: 5s). Auto-acknowledged — low severity." },
+      { timestamp: "2026-02-10T03:20:00Z", actor: "System (Monitor)", action: "Status update", detail: "Latency trending downward. p99 at 4.2s." },
+      { timestamp: "2026-02-10T03:27:00Z", actor: "System (Monitor)", action: "Auto-resolved", detail: "p99 latency returned to 1.1s. Threshold no longer breached." },
+    ],
+  },
+  {
+    id: "inc-005",
+    code: "INC-005",
+    title: "Anomalous Data Access Pattern",
+    description: "Price Optimization agent accessed 3x its normal data volume from Shared Datastore within a 10-minute window. Anomaly detection flagged the pattern and the agent has been paused pending investigation.",
+    severity: "critical",
+    status: "investigating",
+    createdAt: "2026-02-14T13:45:00Z",
+    assignee: { name: "Jordan Reeves", role: "org-admin" },
+    sourceAgent: { name: "Price Optimization", id: "agt-004" },
+    sourceType: "anomaly-detection",
+    impactAssessment: "Agent paused — no further data access possible. Investigating whether accessed data was exfiltrated or if this was a legitimate spike due to seasonal pricing recalculation.",
+    timeline: [
+      { timestamp: "2026-02-14T13:45:00Z", actor: "System (Anomaly Detection)", action: "Incident opened", detail: "Data access anomaly: Price Optimization agent read 847K records in 10 min (normal baseline: 280K)" },
+      { timestamp: "2026-02-14T13:45:02Z", actor: "System (Auto-Pause)", action: "Agent paused", detail: "Price Optimization agent paused pending investigation per anomaly response policy" },
+      { timestamp: "2026-02-14T13:48:00Z", actor: "Jordan Reeves", action: "Investigating", detail: "Reviewing data access logs and agent run context. Checking if seasonal pricing recalculation explains the volume spike." },
+      { timestamp: "2026-02-14T14:02:00Z", actor: "Jordan Reeves", action: "Investigation update", detail: "Data access logs show reads were scoped to pricing tables only. No writes or external API calls detected. Continuing analysis." },
+    ],
   },
 ];

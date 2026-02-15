@@ -27,11 +27,15 @@ import {
   detailedAuditTrail,
   agentTimeSeries,
   subAgentRuns,
+  incidents,
   type DetailedAgentRun,
   type DetailedTraceStep,
   type DetailedAuditEntry,
   type AuditCategory,
   type SubAgentRun,
+  type Incident,
+  type IncidentSeverity,
+  type IncidentStatus,
 } from "@/data/mock";
 import {
   formatNumber,
@@ -56,6 +60,7 @@ import {
   Activity,
   OctagonX,
   ExternalLink,
+  User,
 } from "lucide-react";
 
 // --- Constants ---
@@ -1187,6 +1192,277 @@ const AuditLogTab = ({ selectedAgentId }: { selectedAgentId: string | null }) =>
   );
 };
 
+// --- Incident Helpers ---
+
+const severityConfig: Record<IncidentSeverity, { border: string; badge: string; label: string }> = {
+  critical: { border: "border-l-red-500", badge: "bg-red-500/15 text-red-400", label: "Critical" },
+  high: { border: "border-l-orange-500", badge: "bg-orange-500/15 text-orange-400", label: "High" },
+  medium: { border: "border-l-amber-500", badge: "bg-amber-500/15 text-amber-400", label: "Medium" },
+  low: { border: "border-l-zinc-500", badge: "bg-zinc-500/15 text-zinc-400", label: "Low" },
+};
+
+const incidentStatusConfig: Record<IncidentStatus, { badge: string; label: string }> = {
+  open: { badge: "bg-red-500/15 text-red-400", label: "Open" },
+  investigating: { badge: "bg-blue-500/15 text-blue-400", label: "Investigating" },
+  acknowledged: { badge: "bg-amber-500/15 text-amber-400", label: "Acknowledged" },
+  resolved: { badge: "bg-emerald-500/15 text-emerald-400", label: "Resolved" },
+  closed: { badge: "bg-zinc-500/15 text-zinc-400", label: "Closed" },
+};
+
+const incidentSourceLabels: Record<string, string> = {
+  guardrail: "Guardrail",
+  "alert-rule": "Alert Rule",
+  "anomaly-detection": "Anomaly Detection",
+  "policy-engine": "Policy Engine",
+  manual: "Manual",
+};
+
+// --- Incident Card ---
+
+const IncidentCard = ({
+  incident,
+  expanded,
+  onToggle,
+}: {
+  incident: Incident;
+  expanded: boolean;
+  onToggle: () => void;
+}) => {
+  const sev = severityConfig[incident.severity];
+  const status = incidentStatusConfig[incident.status];
+  const latestEvent = incident.timeline[incident.timeline.length - 1];
+
+  return (
+    <div className={cn("bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden border-l-[3px]", sev.border)}>
+      <button
+        onClick={onToggle}
+        className="w-full text-left p-5 cursor-pointer hover:bg-white/[0.03] transition-colors"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-white/[0.08] text-text-secondary">
+                {incident.code}
+              </span>
+              <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded", sev.badge)}>
+                {sev.label}
+              </span>
+              <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded", status.badge)}>
+                {status.label}
+              </span>
+              <span className="text-[14px] font-medium text-text-primary truncate">
+                {incident.title}
+              </span>
+            </div>
+
+            <p className="text-[12px] text-text-secondary line-clamp-2 mb-3">
+              {incident.description}
+            </p>
+
+            <div className="flex items-center gap-3 flex-wrap text-[11px]">
+              <span className="flex items-center gap-1 text-text-muted">
+                <User size={10} />
+                {incident.assignee.name}
+              </span>
+              <span className="text-text-muted">
+                Source: <span className="text-text-secondary">{incident.sourceAgent.name}</span>
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.06] text-text-muted">
+                {incidentSourceLabels[incident.sourceType]}
+              </span>
+              <span className="text-text-muted ml-auto">
+                {timeAgo(incident.createdAt)}
+              </span>
+            </div>
+
+            {latestEvent && (
+              <div className="mt-2.5 flex items-center gap-2 text-[10px] text-text-muted">
+                <Clock size={10} className="shrink-0" />
+                <span className="font-mono">{latestEvent.actor}</span>
+                <span className="text-text-secondary">{latestEvent.action}</span>
+                <span className="truncate">{latestEvent.detail}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 mt-1">
+            {expanded ? (
+              <ChevronDown size={16} className="text-text-muted" />
+            ) : (
+              <ChevronRight size={16} className="text-text-muted" />
+            )}
+          </div>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-border-subtle px-5 pb-5">
+          <div className="grid grid-cols-2 gap-4 pt-4 mb-5">
+            {incident.impactAssessment && (
+              <div className="bg-bg-primary border border-border-subtle rounded-lg px-4 py-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5">Impact Assessment</p>
+                <p className="text-[12px] text-text-secondary leading-relaxed">{incident.impactAssessment}</p>
+              </div>
+            )}
+            {incident.rootCause && (
+              <div className="bg-bg-primary border border-border-subtle rounded-lg px-4 py-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5">Root Cause</p>
+                <p className="text-[12px] text-text-secondary leading-relaxed">{incident.rootCause}</p>
+              </div>
+            )}
+          </div>
+
+          {incident.postmortem && (
+            <div className="bg-bg-primary border border-border-subtle rounded-lg px-4 py-3 mb-5">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5">Postmortem</p>
+              <p className="text-[12px] text-text-secondary leading-relaxed">{incident.postmortem}</p>
+            </div>
+          )}
+
+          <div className="mb-4">
+            <p className="text-[12px] font-medium text-text-primary mb-3 flex items-center gap-1.5">
+              <Clock size={13} className="text-text-muted" />
+              Timeline ({incident.timeline.length} events)
+            </p>
+            <div className="bg-bg-primary border border-border-subtle rounded-lg overflow-hidden">
+              {incident.timeline.map((event, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-start gap-3 px-4 py-3",
+                    i < incident.timeline.length - 1 && "border-b border-border-subtle"
+                  )}
+                >
+                  <div className="w-2 h-2 rounded-full bg-accent/50 mt-1.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[11px] font-medium text-text-primary">{event.action}</span>
+                      <span className="text-[10px] font-mono text-text-muted ml-auto shrink-0">
+                        {new Date(event.timestamp).toLocaleString("en-US", {
+                          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-text-muted mb-0.5">{event.actor}</p>
+                    <p className="text-[11px] text-text-secondary">{event.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px] text-text-muted">
+            {incident.acknowledgedAt && (
+              <span>Acknowledged: <span className="font-mono text-text-secondary">{timeAgo(incident.acknowledgedAt)}</span></span>
+            )}
+            {incident.resolvedAt && (
+              <span>Resolved: <span className="font-mono text-text-secondary">{timeAgo(incident.resolvedAt)}</span></span>
+            )}
+            {incident.relatedRunId && (
+              <span>Related Run: <span className="font-mono text-text-secondary">{incident.relatedRunId}</span></span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Incidents Tab ---
+
+const IncidentsTab = () => {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const filtered = useMemo(() => {
+    let items = incidents;
+    if (severityFilter !== "all") {
+      items = items.filter((i) => i.severity === severityFilter);
+    }
+    if (statusFilter !== "all") {
+      items = items.filter((i) => i.status === statusFilter);
+    }
+    return items;
+  }, [severityFilter, statusFilter]);
+
+  const openCount = incidents.filter((i) => i.status === "open" || i.status === "investigating" || i.status === "acknowledged").length;
+  const criticalOpenCount = incidents.filter((i) => (i.status === "open" || i.status === "investigating" || i.status === "acknowledged") && i.severity === "critical").length;
+  const resolvedThisMonth = incidents.filter((i) => i.status === "resolved" || i.status === "closed").length;
+
+  const resolvedIncidents = incidents.filter((i) => i.resolvedAt && i.createdAt);
+  const mttr = resolvedIncidents.length > 0
+    ? resolvedIncidents.reduce((sum, i) => sum + (new Date(i.resolvedAt!).getTime() - new Date(i.createdAt).getTime()), 0) / resolvedIncidents.length
+    : 0;
+
+  return (
+    <div>
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
+          <span className="text-[22px] font-semibold text-text-primary">{openCount}</span>
+          <p className="text-[11px] text-text-muted mt-0.5">Total Open</p>
+        </div>
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
+          <span className={cn("text-[22px] font-semibold", criticalOpenCount > 0 ? "text-red-400" : "text-text-primary")}>{criticalOpenCount}</span>
+          <p className="text-[11px] text-text-muted mt-0.5">Critical Open</p>
+        </div>
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
+          <span className="text-[22px] font-semibold text-text-primary">{formatDuration(mttr)}</span>
+          <p className="text-[11px] text-text-muted mt-0.5">MTTR (Mean Time to Resolve)</p>
+        </div>
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
+          <span className="text-[22px] font-semibold text-text-primary">{resolvedThisMonth}</span>
+          <p className="text-[11px] text-text-muted mt-0.5">Resolved This Month</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 mb-4">
+        <select
+          value={severityFilter}
+          onChange={(e) => setSeverityFilter(e.target.value)}
+          className="bg-bg-tertiary border border-border-subtle rounded-md px-2.5 py-1.5 text-[11px] font-mono text-text-secondary focus:outline-none focus:border-accent/40"
+        >
+          <option value="all">All Severities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="bg-bg-tertiary border border-border-subtle rounded-md px-2.5 py-1.5 text-[11px] font-mono text-text-secondary focus:outline-none focus:border-accent/40"
+        >
+          <option value="all">All Statuses</option>
+          <option value="open">Open</option>
+          <option value="investigating">Investigating</option>
+          <option value="acknowledged">Acknowledged</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+        </select>
+        <span className="text-[10px] font-mono text-text-muted ml-auto">{filtered.length} incident{filtered.length !== 1 ? "s" : ""}</span>
+      </div>
+
+      <div className="space-y-3">
+        {filtered.map((incident) => (
+          <IncidentCard
+            key={incident.id}
+            incident={incident}
+            expanded={expandedId === incident.id}
+            onToggle={() => setExpandedId(expandedId === incident.id ? null : incident.id)}
+          />
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="text-center py-16">
+          <p className="text-[13px] text-text-muted">No incidents match the current filters.</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- Page ---
 
 const ObservabilityPage = () => {
@@ -1209,7 +1485,7 @@ const ObservabilityPage = () => {
 
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(deepLink?.agentId ?? null);
   const [timeRange, setTimeRange] = useState<TimeRange>("24h");
-  const [activeBottomTab, setActiveBottomTab] = useState<"runs" | "audit">("runs");
+  const [activeBottomTab, setActiveBottomTab] = useState<"runs" | "audit" | "incidents">("runs");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(deepLink?.runId ?? null);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(deepLink?.expandedSteps ?? new Set());
   const [killTargetId, setKillTargetId] = useState<string | null>(null);
@@ -1289,6 +1565,18 @@ const ObservabilityPage = () => {
             <Shield size={14} />
             Audit Log
           </button>
+          <button
+            onClick={() => setActiveBottomTab("incidents")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded-lg transition-colors",
+              activeBottomTab === "incidents"
+                ? "bg-bg-secondary text-text-primary border border-border-subtle"
+                : "text-text-muted hover:text-text-secondary"
+            )}
+          >
+            <AlertTriangle size={14} />
+            Incidents
+          </button>
         </div>
 
         {activeBottomTab === "runs" && (
@@ -1303,6 +1591,9 @@ const ObservabilityPage = () => {
         )}
         {activeBottomTab === "audit" && (
           <AuditLogTab selectedAgentId={selectedAgentId} />
+        )}
+        {activeBottomTab === "incidents" && (
+          <IncidentsTab />
         )}
       </div>
 
