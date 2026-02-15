@@ -22,7 +22,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { agents, agentFlows, detailedAgentRuns, agentConfigs, accounts, jitGrants } from "@/data/mock";
-import type { TraceStep, IntegrationSource, JitGrant, JitStatus, JitPolicy } from "@/data/mock";
+import type { TraceStep, IntegrationSource, JitStatus, JitPolicy } from "@/data/mock";
 import type { AgentConfig } from "@/data/mock";
 import { AgentConfigPanel } from "@/components/agent-config-panel";
 import {

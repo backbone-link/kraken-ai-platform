@@ -59,6 +59,7 @@ export const ChatPanel = () => {
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const msgIdRef = useRef(0);
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -105,7 +106,7 @@ export const ChatPanel = () => {
     if (!trimmed || typing) return;
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: `msg-${++msgIdRef.current}`,
       role: "user",
       content: trimmed,
     };
@@ -114,13 +115,14 @@ export const ChatPanel = () => {
     setTyping(true);
 
     const reply = cannedResponses[trimmed] ?? defaultResponse;
+    const replyId = `msg-${++msgIdRef.current}`;
     setTimeout(() => {
       setMessages((prev) => [
         ...prev,
-        { id: (Date.now() + 1).toString(), role: "assistant", content: reply },
+        { id: replyId, role: "assistant", content: reply },
       ]);
       setTyping(false);
-    }, 800 + Math.random() * 600);
+    }, 1000);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
