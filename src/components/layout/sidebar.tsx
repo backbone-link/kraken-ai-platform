@@ -23,8 +23,16 @@ import {
   pluginMarketplaces,
   agentMarketplaces,
 } from "@/data/mock";
+import type { LucideIcon } from "lucide-react";
 
-const mainNav = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  badge?: string;
+};
+
+const mainNav: NavItem[] = [
   { href: "/observability", label: "Observability", icon: Activity },
   { href: "/agents", label: "Agents", icon: Cpu },
   { href: "/pipelines", label: "Pipelines", icon: Workflow },
@@ -32,7 +40,7 @@ const mainNav = [
   { href: "/usage", label: "Usage", icon: BarChart3 },
 ];
 
-const systemNav = [
+const systemNav: NavItem[] = [
   { href: "/integrations", label: "Integrations", icon: Cable },
   { href: "/governance", label: "Governance", icon: Shield },
   { href: "/settings", label: "Settings", icon: SlidersHorizontal },
@@ -85,7 +93,7 @@ export const Sidebar = () => {
     }
   };
 
-  const renderNavItem = (item: (typeof mainNav)[number]) => (
+  const renderNavItem = (item: NavItem) => (
     <Link
       key={item.href}
       href={item.href}

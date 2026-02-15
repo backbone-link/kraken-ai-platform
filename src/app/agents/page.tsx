@@ -80,7 +80,7 @@ const sourceConfig: Record<
 
 const typeBadgeStyles: Record<MemoryType, string> = {
   core: "bg-blue-500/15 text-blue-400",
-  archival: "bg-white/[0.08] text-text-secondary",
+  archival: "bg-white/8 text-text-secondary",
 };
 
 const sensitivityBadgeStyles: Record<MemorySensitivity, string> = {
@@ -154,7 +154,7 @@ const MemoryCard = ({ memory }: { memory: MemoryInstance }) => {
 
   return (
     <Link href={`/memory/${memory.id}`}>
-      <div className="bg-bg-secondary border border-white/[0.08] rounded-xl p-5 hover:border-white/[0.14] transition-colors h-full">
+      <div className="bg-bg-secondary border border-white/8 rounded-xl p-5 hover:border-white/[0.14] transition-colors h-full">
         <div className="flex items-center gap-2.5">
           <span className="text-[15px] font-medium text-text-primary truncate">
             {memory.name}
@@ -165,7 +165,7 @@ const MemoryCard = ({ memory }: { memory: MemoryInstance }) => {
           {memory.description}
         </p>
 
-        <div className="border-t border-white/[0.06] my-3" />
+        <div className="border-t border-white/6 my-3" />
 
         <div className="flex items-center gap-2 flex-wrap">
           <span className={cn("text-[11px] font-medium px-2 py-0.5 rounded-full capitalize", typeBadgeStyles[memory.type])}>
@@ -227,7 +227,7 @@ const AgentsPage = () => {
       />
 
       {/* Tab bar */}
-      <div className="flex items-center gap-6 border-b border-white/[0.06] mb-6">
+      <div className="flex items-center gap-6 border-b border-white/6 mb-6">
         <button
           onClick={() => setActiveTab("agents")}
           className={cn(
@@ -258,7 +258,7 @@ const AgentsPage = () => {
           {/* Agent Marketplaces + Connection input */}
           <div className="flex gap-4 mb-5 items-stretch">
             {/* Table */}
-            <div className="flex-1 min-w-0 bg-bg-secondary border border-white/[0.08] rounded-xl overflow-hidden">
+            <div className="flex-1 min-w-0 bg-bg-secondary border border-white/8 rounded-xl overflow-hidden">
               <table className="w-full">
                 <thead>
                   <tr>
@@ -283,7 +283,7 @@ const AgentsPage = () => {
                   {agentMarketplaces.map((marketplace) => (
                       <tr
                         key={marketplace.id}
-                        className="border-t border-white/[0.06] hover:bg-white/[0.03] transition-colors group"
+                        className="border-t border-white/6 hover:bg-white/3 transition-colors group"
                       >
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
@@ -295,7 +295,7 @@ const AgentsPage = () => {
                                 "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded",
                                 marketplace.source === "kraken"
                                   ? "text-accent/50 bg-accent/8"
-                                  : "text-text-muted/60 bg-white/[0.05]"
+                                  : "text-text-muted/60 bg-white/5"
                               )}
                             >
                               {sourceConfig[marketplace.source].label}
@@ -337,8 +337,8 @@ const AgentsPage = () => {
             </div>
 
             {/* Connection input */}
-            <div className="w-[340px] shrink-0">
-              <div className="bg-bg-secondary border border-white/[0.08] rounded-xl px-4 py-3">
+            <div className="w-85 shrink-0">
+              <div className="bg-bg-secondary border border-white/8 rounded-xl px-4 py-3">
                 <div className="flex items-center gap-2 mb-2.5">
                   <GitBranch size={12} className="text-text-muted" />
                   <span className="text-[11px] font-mono text-text-muted uppercase tracking-wider">
@@ -394,7 +394,7 @@ const AgentsPage = () => {
 
               return (
                 <Link key={agent.id} href={`/agents/${agent.id}`}>
-                  <div className="bg-bg-secondary border border-white/[0.08] rounded-xl p-5 hover:border-white/[0.14] transition-colors">
+                  <div className="bg-bg-secondary border border-white/8 rounded-xl p-5 hover:border-white/[0.14] transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-[15px] font-medium text-text-primary">
@@ -419,7 +419,7 @@ const AgentsPage = () => {
                       {agent.description}
                     </p>
 
-                    <div className="border-t border-white/[0.06] my-3" />
+                    <div className="border-t border-white/6 my-3" />
 
                     <div className="flex items-center gap-6">
                       <div>
