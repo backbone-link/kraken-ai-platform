@@ -54,10 +54,10 @@ Drag-and-drop agent logic with model calls, tool invocations, conditions, and hu
 
 **Record (10-15s video):** `/agents/[id]` Builder tab — start zoomed out on full graph, zoom into a model node, pan to tool call node (animated edge), pan to human-in-the-loop node, zoom back out. Keep node legend visible.
 
-### 2B. Agent Stores
+### 2B. Agent Marketplaces
 Install pre-built agents from official, community, and custom repositories — or build your own.
 
-**Record (6-8s video):** `/agents` — show stores table, scroll to agent cards grid, hover a card.
+**Record (6-8s video):** `/agents` — show marketplaces table, scroll to agent cards grid, hover a card.
 
 ### 2C. Run & Debug
 Execute agents manually, trigger dry runs, and inspect every step in real time.
@@ -75,10 +75,10 @@ Connect data sources, tools, and actions through a single interface built on Mod
 
 **Record (10-12s video):** `/integrations` — click through Data Sources → Tools → Actions tabs, select an integration, show config panel.
 
-### 3B. Plugin Stores
-Browse and install integrations from Kraken's official store, community repos, or your own.
+### 3B. Plugin Marketplaces
+Browse and install integrations from Kraken's official marketplace, community repos, or your own.
 
-**Record (screenshot):** `/integrations` top section — store grid + "Add Store" form.
+**Record (screenshot):** `/integrations` top section — marketplace grid + "Add marketplace" form.
 
 ### 3C. Multi-Model Support
 Connect any LLM provider — OpenAI, Anthropic, Google, or self-hosted — through a unified proxy.
@@ -114,10 +114,10 @@ Stop any agent instantly — with automatic guardrails for cost, error rates, an
 1. `/` — click Kill on a running agent, capture the confirmation dialog
 2. `/settings` Governance tab — kill switch toggles, thresholds, compliance section
 
-### 5B. Team & RBAC
-Role-based access control with admin, editor, and viewer roles — plus API key management.
+### 5B. Accounts & RBAC
+Granular role-based access control — from org admins to read-only auditors — with service account management and API key provisioning.
 
-**Record (5-6s video):** `/settings` Team tab → API Keys tab.
+**Record (5-6s video):** `/settings` Accounts tab → API Keys tab.
 
 ### 5C. Alerts & Notifications
 Route alerts to Slack, Teams, email, or webhooks — with configurable severity rules.
@@ -135,15 +135,15 @@ Route alerts to Slack, Teams, email, or webhooks — with configurable severity 
 | 1B | Execution Traces | Video | 12-15s | `/` Runs & Traces |
 | 1C | Audit Trail | Video | 5-7s | `/` Audit Log |
 | 2A | Workflow Builder | Video | 10-15s | `/agents/[id]` Builder |
-| 2B | Agent Stores | Video | 6-8s | `/agents` |
+| 2B | Agent Marketplaces | Video | 6-8s | `/agents` |
 | 2C | Run & Debug | Video | 6-8s | `/agents/[id]` Runs |
 | 3A | Integrations | Video | 10-12s | `/integrations` |
-| 3B | Plugin Stores | Screenshot | — | `/integrations` |
+| 3B | Plugin Marketplaces | Screenshot | — | `/integrations` |
 | 3C | Multi-Model | Screenshot | — | `/models` |
 | 4A | Pipelines | Video | 10-12s | `/pipelines` |
 | 4B | Usage Tracking | Video | 8-10s | `/usage` |
 | 5A | Kill Switches | Screenshot x2 | — | `/` + `/settings` |
-| 5B | Team & RBAC | Video | 5-6s | `/settings` |
+| 5B | Accounts & RBAC | Video | 5-6s | `/settings` |
 | 5C | Alerts | Screenshot | — | `/settings` |
 
 **Total: 10 videos + 6 screenshots**

@@ -153,7 +153,7 @@ const UsagePage = () => (
           Runs This Month
         </p>
         <p className="text-[32px] font-mono font-light text-text-primary metric-value leading-none">
-          {formatNumber(dashboardMetrics.totalRunsToday)}
+          {formatNumber(dashboardMetrics.totalRunsThisMonth)}
         </p>
       </div>
       <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
@@ -174,66 +174,109 @@ const UsagePage = () => (
       </div>
     </div>
 
-    {/* Usage by Model */}
-    <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5 mb-4">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider">
-          Usage by Model
-        </p>
-        <span className="text-[12px] font-mono text-text-secondary">
-          {formatTokens(totalUsed)} tokens
-        </span>
+    {/* Usage by Model + Cost by Agent — side by side */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider">
+            Usage by Model
+          </p>
+          <span className="text-[12px] font-mono text-text-secondary">
+            {formatTokens(totalUsed)} tokens
+          </span>
+        </div>
+
+        {(() => {
+          const sorted = [...modelUsage].sort((a, b) => b.used - a.used);
+          const exact = sorted.map((m) => (m.used / totalUsed) * 100);
+          const floored = exact.map(Math.floor);
+          let remainder = 100 - floored.reduce((s, v) => s + v, 0);
+          const remainders = exact.map((v, i) => ({ i, r: v - floored[i] }));
+          remainders.sort((a, b) => b.r - a.r);
+          for (const { i } of remainders) {
+            if (remainder <= 0) break;
+            floored[i]++;
+            remainder--;
+          }
+
+          return (
+            <div className="space-y-3">
+              {sorted.map((m, i) => (
+                <div key={m.model}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${modelColors[i % modelColors.length]}`}
+                      />
+                      <span className="text-[13px] text-text-primary">
+                        {m.model}
+                      </span>
+                      <span className="text-[10px] font-mono text-text-muted">
+                        {m.provider}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[12px] font-mono text-text-muted">
+                        {formatTokens(m.used)}
+                      </span>
+                      <span className="text-[12px] font-mono text-text-secondary w-10 text-right">
+                        {floored[i]}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${modelColors[i % modelColors.length]}`}
+                      style={{ width: `${exact[i]}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
-      {(() => {
-        const sorted = [...modelUsage].sort((a, b) => b.used - a.used);
-        const exact = sorted.map((m) => (m.used / totalUsed) * 100);
-        const floored = exact.map(Math.floor);
-        let remainder = 100 - floored.reduce((s, v) => s + v, 0);
-        const remainders = exact.map((v, i) => ({ i, r: v - floored[i] }));
-        remainders.sort((a, b) => b.r - a.r);
-        for (const { i } of remainders) {
-          if (remainder <= 0) break;
-          floored[i]++;
-          remainder--;
-        }
-
-        return (
-          <div className="space-y-3">
-            {sorted.map((m, i) => (
-              <div key={m.model}>
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider">
+            Cost by Agent
+          </p>
+          <div className="flex items-center gap-4 text-[11px] font-mono text-text-muted">
+            <span>{formatTokens(totalTokensIn)} in</span>
+            <span>{formatTokens(totalTokensOut)} out</span>
+          </div>
+        </div>
+        <div className="space-y-3">
+          {agentObservabilityMetrics.map((agent) => {
+            const costPercent = totalCost > 0 ? (agent.cost / totalCost) * 100 : 0;
+            return (
+              <div key={agent.agentId}>
                 <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${modelColors[i % modelColors.length]}`}
-                    />
-                    <span className="text-[13px] text-text-primary">
-                      {m.model}
-                    </span>
-                    <span className="text-[10px] font-mono text-text-muted">
-                      {m.provider}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
+                  <span className="text-[13px] text-text-primary">{agent.name}</span>
+                  <div className="flex items-center gap-4">
                     <span className="text-[12px] font-mono text-text-muted">
-                      {formatTokens(m.used)}
+                      {formatTokens(agent.tokensIn)} in
                     </span>
-                    <span className="text-[12px] font-mono text-text-secondary w-10 text-right">
-                      {floored[i]}%
+                    <span className="text-[12px] font-mono text-text-muted">
+                      {formatTokens(agent.tokensOut)} out
+                    </span>
+                    <span className="text-[12px] font-mono text-text-secondary">
+                      {formatCurrency(agent.cost)}
                     </span>
                   </div>
                 </div>
-                <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+                <div className="h-1 bg-bg-tertiary rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${modelColors[i % modelColors.length]}`}
-                    style={{ width: `${exact[i]}%` }}
+                    className="h-full rounded-full bg-accent/50"
+                    style={{ width: `${costPercent}%` }}
                   />
                 </div>
               </div>
-            ))}
-          </div>
-        );
-      })()}
+            );
+          })}
+        </div>
+      </div>
     </div>
 
     {/* Pipeline Compute */}
@@ -339,47 +382,6 @@ const UsagePage = () => (
       );
     })()}
 
-    {/* Cost Per Agent */}
-    <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-text-muted font-mono text-[11px] uppercase tracking-wider">
-          Cost by Agent
-        </p>
-        <div className="flex items-center gap-4 text-[11px] font-mono text-text-muted">
-          <span>{formatTokens(totalTokensIn)} in</span>
-          <span>{formatTokens(totalTokensOut)} out</span>
-        </div>
-      </div>
-      <div className="space-y-3">
-        {agentObservabilityMetrics.map((agent) => {
-          const costPercent = totalCost > 0 ? (agent.cost / totalCost) * 100 : 0;
-          return (
-            <div key={agent.agentId}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[13px] text-text-primary">{agent.name}</span>
-                <div className="flex items-center gap-4">
-                  <span className="text-[12px] font-mono text-text-muted">
-                    {formatTokens(agent.tokensIn)} in
-                  </span>
-                  <span className="text-[12px] font-mono text-text-muted">
-                    {formatTokens(agent.tokensOut)} out
-                  </span>
-                  <span className="text-[12px] font-mono text-text-secondary">
-                    {formatCurrency(agent.cost)}
-                  </span>
-                </div>
-              </div>
-              <div className="h-1 bg-bg-tertiary rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-accent/50"
-                  style={{ width: `${costPercent}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
   </div>
 );
 

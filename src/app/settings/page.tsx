@@ -1,15 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Key, Shield, Bell, Settings2, Users, Copy } from "lucide-react";
-import { teamMembers, apiKeys } from "@/data/mock";
+import {
+  Plus,
+  Key,
+  Shield,
+  Bell,
+  Settings2,
+  Users,
+  Copy,
+  User,
+  Bot,
+  Clock,
+  ShieldCheck,
+  CheckCircle,
+  Timer,
+} from "lucide-react";
+import {
+  accounts,
+  jitGrants,
+  apiKeys,
+  rolePermissions,
+  type Account,
+  type AccountRole,
+  type JitGrant,
+  type JitStatus,
+} from "@/data/mock";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
+import { Toggle } from "@/components/toggle";
 
 const tabs = [
   { key: "general", label: "General", icon: Settings2 },
-  { key: "team", label: "Team", icon: Users },
+  { key: "accounts", label: "Accounts", icon: Users },
   { key: "api-keys", label: "API Keys", icon: Key },
   { key: "governance", label: "Governance", icon: Shield },
   { key: "notifications", label: "Notifications", icon: Bell },
@@ -22,27 +46,71 @@ const inputClass =
 
 const labelClass = "text-[12px] font-medium text-text-secondary mb-1.5 block";
 
-const Toggle = ({ on }: { on: boolean }) => (
-  <div
-    className={cn(
-      "w-9 h-5 rounded-full relative transition-colors shrink-0",
-      on ? "bg-accent" : "bg-bg-tertiary border border-border-subtle"
-    )}
-  >
-    <div
-      className={cn(
-        "w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] transition-[left]",
-        on ? "left-[18px]" : "left-[3px]"
-      )}
-    />
-  </div>
-);
-
-const roleBadge: Record<string, string> = {
-  admin: "bg-accent/15 text-accent",
-  editor: "bg-bg-tertiary text-text-secondary",
-  viewer: "bg-bg-tertiary text-text-muted",
+const roleBadgeColors: Record<AccountRole, string> = {
+  "org-admin": "bg-accent/15 text-accent",
+  "security-admin": "bg-red-400/15 text-red-400",
+  "agent-developer": "bg-purple-400/15 text-purple-400",
+  "agent-operator": "bg-teal-400/15 text-teal-400",
+  "auditor": "bg-amber-400/15 text-amber-400",
+  "read-only": "bg-bg-tertiary text-text-muted",
 };
+
+const jitStatusColors: Record<JitStatus, string> = {
+  active: "bg-emerald-400/15 text-emerald-400",
+  "pending-approval": "bg-amber-400/15 text-amber-400",
+  expired: "bg-bg-tertiary text-text-muted",
+  revoked: "bg-red-400/15 text-red-400",
+  denied: "bg-red-400/15 text-red-400",
+};
+
+const jitStatusBorderColors: Record<JitStatus, string> = {
+  active: "border-l-emerald-400",
+  "pending-approval": "border-l-amber-400",
+  expired: "border-l-zinc-500",
+  revoked: "border-l-red-400",
+  denied: "border-l-red-400",
+};
+
+const roleDescriptions: Record<AccountRole, string> = {
+  "org-admin": "Full platform access. Can manage all accounts, agents, integrations, and governance settings.",
+  "security-admin": "Manages security policies, audit logs, JIT approvals, and agent kill switches.",
+  "agent-developer": "Creates and deploys agents and pipelines. Can connect integrations and view observability.",
+  "agent-operator": "Executes and monitors agents. Can approve JIT requests and manage pipeline runs.",
+  "auditor": "Read-only access to audit logs, observability, agent configs, and account directory.",
+  "read-only": "View-only access to agents, pipelines, observability, and integrations.",
+};
+
+const permissionCategories: Record<string, string> = {
+  agents: "text-purple-400 bg-purple-400/10",
+  data: "text-sky-400 bg-sky-400/10",
+  pipelines: "text-teal-400 bg-teal-400/10",
+  integrations: "text-amber-400 bg-amber-400/10",
+  observability: "text-emerald-400 bg-emerald-400/10",
+  audit: "text-orange-400 bg-orange-400/10",
+  governance: "text-red-400 bg-red-400/10",
+  accounts: "text-indigo-400 bg-indigo-400/10",
+  compute: "text-pink-400 bg-pink-400/10",
+  jit: "text-cyan-400 bg-cyan-400/10",
+};
+
+const getPermColor = (perm: string) => {
+  const cat = perm.split(":")[0];
+  return permissionCategories[cat] ?? "text-text-muted bg-bg-tertiary";
+};
+
+const minutesRemaining = (expiresAt: string) => {
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  return Math.max(0, Math.round(diff / 60_000));
+};
+
+const elapsedFraction = (grantedAt: string, expiresAt: string) => {
+  const start = new Date(grantedAt).getTime();
+  const end = new Date(expiresAt).getTime();
+  const now = Date.now();
+  return Math.min(1, Math.max(0, (now - start) / (end - start)));
+};
+
+// ─── General Tab ───
 
 const GeneralTab = () => (
   <div className="bg-bg-secondary border border-border-subtle rounded-xl p-6 max-w-2xl">
@@ -89,68 +157,606 @@ const GeneralTab = () => (
   </div>
 );
 
-const TeamTab = () => (
-  <div>
-    <div className="flex items-center justify-between mb-4">
-      <h2 className="text-[15px] font-medium text-text-primary">
-        Team Members
-      </h2>
-      <button className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg px-4 py-2 text-[13px] font-medium transition-colors">
-        <Plus size={15} />
-        Invite Member
-      </button>
-    </div>
+// ─── Accounts Tab ───
 
-    <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
-      <table className="w-full text-left">
-        <thead>
-          <tr className="border-b border-border-subtle">
-            <th className="text-[11px] font-medium text-text-muted uppercase tracking-wider px-5 py-3">
-              Name
-            </th>
-            <th className="text-[11px] font-medium text-text-muted uppercase tracking-wider px-5 py-3">
-              Email
-            </th>
-            <th className="text-[11px] font-medium text-text-muted uppercase tracking-wider px-5 py-3">
-              Role
-            </th>
-            <th className="text-[11px] font-medium text-text-muted uppercase tracking-wider px-5 py-3">
-              Last Active
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {teamMembers.map((member) => (
-            <tr
-              key={member.id}
-              className="border-b border-border-subtle last:border-b-0 hover:bg-bg-tertiary/50 transition-colors"
-            >
-              <td className="px-5 py-3.5 text-[13px] text-text-primary font-medium">
-                {member.name}
-              </td>
-              <td className="px-5 py-3.5 text-[13px] text-text-secondary font-mono">
-                {member.email}
-              </td>
-              <td className="px-5 py-3.5">
-                <span
-                  className={cn(
-                    "text-[11px] font-medium px-2.5 py-1 rounded-md capitalize",
-                    roleBadge[member.role]
-                  )}
-                >
-                  {member.role}
-                </span>
-              </td>
-              <td className="px-5 py-3.5 text-[12px] text-text-muted font-mono">
-                {timeAgo(member.lastActive)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+type AccountSubTab = "directory" | "jit" | "roles";
+
+const AccountsTab = () => {
+  const [sub, setSub] = useState<AccountSubTab>("directory");
+
+  const subTabs: { key: AccountSubTab; label: string }[] = [
+    { key: "directory", label: "Directory" },
+    { key: "jit", label: "JIT Authorization" },
+    { key: "roles", label: "Roles & Permissions" },
+  ];
+
+  return (
+    <div>
+      <div className="flex gap-1 mb-5">
+        {subTabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setSub(t.key)}
+            className={cn(
+              "px-3.5 py-1.5 text-[12px] rounded-lg transition-colors",
+              sub === t.key
+                ? "bg-bg-tertiary text-text-primary font-medium"
+                : "text-text-muted hover:text-text-secondary"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {sub === "directory" && <DirectorySubTab />}
+      {sub === "jit" && <JitSubTab />}
+      {sub === "roles" && <RolesSubTab />}
     </div>
+  );
+};
+
+// ── Directory Sub-tab ──
+
+const DirectorySubTab = () => {
+  const [filter, setFilter] = useState<"all" | "human" | "service">("all");
+
+  const filtered = accounts.filter(
+    (a) => filter === "all" || a.type === filter
+  );
+  const humanCount = accounts.filter((a) => a.type === "human").length;
+  const serviceCount = accounts.filter((a) => a.type === "service").length;
+  const activeServiceCount = accounts.filter(
+    (a) => a.type === "service" && a.status === "active"
+  ).length;
+  const activeJitCount = jitGrants.filter((g) => g.status === "active").length;
+  const pendingCount = jitGrants.filter(
+    (g) => g.status === "pending-approval"
+  ).length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-1.5">
+          {(
+            [
+              { key: "all", label: "All", count: accounts.length },
+              { key: "human", label: "Human", count: humanCount },
+              { key: "service", label: "Service", count: serviceCount },
+            ] as const
+          ).map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-lg transition-colors",
+                filter === f.key
+                  ? "bg-bg-tertiary text-text-primary font-medium"
+                  : "text-text-muted hover:text-text-secondary"
+              )}
+            >
+              {f.label}
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-md",
+                  filter === f.key
+                    ? "bg-accent/15 text-accent"
+                    : "bg-bg-tertiary text-text-muted"
+                )}
+              >
+                {f.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <button className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white rounded-lg px-4 py-2 text-[13px] font-medium transition-colors">
+          <Plus size={15} />
+          Add Account
+        </button>
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        <MetricCard label="Total Accounts" value={accounts.length} />
+        <MetricCard label="Active Service Accts" value={activeServiceCount} />
+        <MetricCard
+          label="Active JIT Sessions"
+          value={activeJitCount}
+          pulse
+        />
+        <MetricCard
+          label="Pending Approvals"
+          value={pendingCount}
+          warning={pendingCount > 0}
+        />
+      </div>
+
+      {/* Table */}
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b border-border-subtle">
+              {["Type", "Name", "Email / Identifier", "Role", "Status", "Last Active"].map(
+                (h) => (
+                  <th
+                    key={h}
+                    className="text-[11px] font-medium text-text-muted uppercase tracking-wider px-5 py-3"
+                  >
+                    {h}
+                  </th>
+                )
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((a) => (
+              <AccountRow key={a.id} account={a} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const MetricCard = ({
+  label,
+  value,
+  pulse,
+  warning,
+}: {
+  label: string;
+  value: number;
+  pulse?: boolean;
+  warning?: boolean;
+}) => (
+  <div className="bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
+    <div className="flex items-center gap-2">
+      {pulse && (
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+        </span>
+      )}
+      <span
+        className={cn(
+          "text-[22px] font-semibold",
+          warning ? "text-amber-400" : "text-text-primary"
+        )}
+      >
+        {value}
+      </span>
+    </div>
+    <p className="text-[11px] text-text-muted mt-0.5">{label}</p>
   </div>
 );
+
+const statusDot: Record<string, string> = {
+  active: "bg-emerald-400",
+  suspended: "bg-red-400",
+  "pending-invite": "bg-amber-400",
+};
+
+const AccountRow = ({ account: a }: { account: Account }) => {
+  const isService = a.type === "service";
+  const activeGrants = jitGrants.filter(
+    (g) => g.accountId === a.id && g.status === "active"
+  );
+
+  return (
+    <tr
+      className={cn(
+        "border-b border-border-subtle last:border-b-0 hover:bg-bg-tertiary/50 transition-colors",
+        isService && "border-l-2 border-l-accent/30"
+      )}
+    >
+      <td className="px-5 py-3.5">
+        {isService ? (
+          <Bot size={16} className="text-accent" />
+        ) : (
+          <User size={16} className="text-text-secondary" />
+        )}
+      </td>
+      <td className="px-5 py-3.5">
+        <span className="text-[13px] text-text-primary font-medium">
+          {a.name}
+        </span>
+        {isService && a.boundAgentName && (
+          <span className="block text-[11px] text-text-muted mt-0.5">
+            → {a.boundAgentName}
+          </span>
+        )}
+      </td>
+      <td className="px-5 py-3.5 text-[12px] text-text-secondary font-mono">
+        {a.email}
+      </td>
+      <td className="px-5 py-3.5">
+        <span
+          className={cn(
+            "text-[11px] font-medium px-2.5 py-1 rounded-md",
+            roleBadgeColors[a.role]
+          )}
+        >
+          {a.role}
+        </span>
+      </td>
+      <td className="px-5 py-3.5">
+        <span className="flex items-center gap-1.5">
+          <span
+            className={cn(
+              "w-1.5 h-1.5 rounded-full",
+              statusDot[a.status]
+            )}
+          />
+          <span className="text-[12px] text-text-secondary capitalize">
+            {a.status.replace("-", " ")}
+          </span>
+        </span>
+      </td>
+      <td className="px-5 py-3.5">
+        <span className="text-[12px] text-text-muted font-mono">
+          {timeAgo(a.lastActive)}
+        </span>
+        {activeGrants.length > 0 && (
+          <span className="ml-2 text-[10px] font-medium text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">
+            {activeGrants.length} JIT
+          </span>
+        )}
+      </td>
+    </tr>
+  );
+};
+
+// ── JIT Authorization Sub-tab ──
+
+const JitSubTab = () => {
+  const activeGrants = jitGrants.filter(
+    (g) => g.status === "active" || g.status === "pending-approval"
+  );
+  const historyGrants = jitGrants.filter(
+    (g) =>
+      g.status === "expired" ||
+      g.status === "revoked" ||
+      g.status === "denied"
+  );
+  const serviceAccounts = accounts.filter((a) => a.type === "service");
+
+  return (
+    <div className="space-y-6">
+      {/* Active & Pending */}
+      <div>
+        <h3 className="text-[14px] font-medium text-text-primary mb-3 flex items-center gap-2">
+          <Clock size={15} className="text-emerald-400" />
+          Active & Pending Sessions
+        </h3>
+        <div className="space-y-3">
+          {activeGrants.map((g) => (
+            <JitSessionCard key={g.id} grant={g} />
+          ))}
+        </div>
+      </div>
+
+      {/* History */}
+      <div>
+        <h3 className="text-[14px] font-medium text-text-primary mb-3 flex items-center gap-2">
+          <Timer size={15} className="text-text-muted" />
+          Grant History
+        </h3>
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
+          {historyGrants.map((g, i) => (
+            <JitHistoryRow
+              key={g.id}
+              grant={g}
+              last={i === historyGrants.length - 1}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Per-Agent Authorization Rules */}
+      <div>
+        <h3 className="text-[14px] font-medium text-text-primary mb-3 flex items-center gap-2">
+          <ShieldCheck size={15} className="text-text-muted" />
+          Authorization Rules
+        </h3>
+
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-border-subtle">
+                {["Service Account", "Bound Agent", "Approval Method", "Max Grant Duration"].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="text-[11px] font-medium text-text-muted uppercase tracking-wider px-5 py-3"
+                    >
+                      {h}
+                    </th>
+                  )
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {serviceAccounts.map((a, i) => (
+                <tr key={a.id} className={cn(i < serviceAccounts.length - 1 && "border-b border-border-subtle")}>
+                  <td className="text-[12px] text-text-primary font-mono px-5 py-3">
+                    {a.name}
+                  </td>
+                  <td className="text-[12px] text-text-secondary px-5 py-3">
+                    {a.boundAgentName}
+                  </td>
+                  <td className="px-5 py-3">
+                    <span
+                      className={cn(
+                        "text-[10px] font-medium px-2 py-0.5 rounded",
+                        a.jitPolicy === "auto-approve"
+                          ? "bg-emerald-400/10 text-emerald-400"
+                          : a.jitPolicy === "policy-based"
+                            ? "bg-sky-400/10 text-sky-400"
+                            : "bg-amber-400/10 text-amber-400"
+                      )}
+                    >
+                      {a.jitPolicy}
+                    </span>
+                  </td>
+                  <td className="text-[12px] text-text-muted font-mono px-5 py-3">
+                    {a.maxJitDuration}m
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const JitSessionCard = ({ grant: g }: { grant: JitGrant }) => {
+  const isPending = g.status === "pending-approval";
+  const remaining =
+    g.expiresAt ? minutesRemaining(g.expiresAt) : 0;
+  const elapsed =
+    g.grantedAt && g.expiresAt
+      ? elapsedFraction(g.grantedAt, g.expiresAt)
+      : 0;
+  const barColor = elapsed > 0.75 ? "bg-amber-400" : "bg-emerald-400";
+
+  return (
+    <div
+      className={cn(
+        "bg-bg-secondary border border-border-subtle rounded-xl p-4 border-l-[3px]",
+        jitStatusBorderColors[g.status]
+      )}
+    >
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <Bot size={14} className="text-accent" />
+            <span className="text-[13px] font-medium text-text-primary">
+              {g.agentName}
+            </span>
+            <span className="text-[11px] text-text-muted font-mono">
+              {g.accountName}
+            </span>
+          </div>
+          <p className="text-[12px] text-text-secondary mt-1.5 max-w-xl">
+            {g.reason}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "text-[10px] font-medium px-2 py-0.5 rounded",
+              jitStatusColors[g.status]
+            )}
+          >
+            {g.status.replace("-", " ")}
+          </span>
+        </div>
+      </div>
+
+      {/* Permissions */}
+      <div className="flex items-center gap-1.5 mb-3">
+        {g.permissions.map((p) => (
+          <span
+            key={p}
+            className={cn(
+              "text-[10px] font-mono px-2 py-0.5 rounded",
+              getPermColor(p)
+            )}
+          >
+            {p}
+          </span>
+        ))}
+      </div>
+
+      {/* Footer: approval method + countdown + actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-text-muted flex items-center gap-1">
+            {g.approvalMethod === "auto-policy" ? (
+              <>
+                <CheckCircle size={11} className="text-emerald-400" />
+                Auto Policy
+              </>
+            ) : g.approvalMethod === "human" ? (
+              <>
+                <User size={11} />
+                {g.approvedBy}
+              </>
+            ) : (
+              <>
+                <Shield size={11} />
+                Policy Engine
+              </>
+            )}
+          </span>
+
+          {g.taskContext && (
+            <span className="text-[10px] text-text-muted bg-bg-tertiary px-2 py-0.5 rounded font-mono">
+              {g.taskContext}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          {!isPending && g.expiresAt && (
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all", barColor)}
+                  style={{ width: `${(1 - elapsed) * 100}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-mono text-text-muted">
+                {remaining}m left
+              </span>
+            </div>
+          )}
+
+          {isPending ? (
+            <div className="flex gap-2">
+              <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-emerald-400/15 text-emerald-400 hover:bg-emerald-400/25 transition-colors">
+                Approve
+              </button>
+              <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-red-400/15 text-red-400 hover:bg-red-400/25 transition-colors">
+                Deny
+              </button>
+            </div>
+          ) : (
+            <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-red-400/15 text-red-400 hover:bg-red-400/25 transition-colors">
+              Revoke Now
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const JitHistoryRow = ({
+  grant: g,
+  last,
+}: {
+  grant: JitGrant;
+  last: boolean;
+}) => {
+  const ts = g.revokedAt ?? g.expiresAt ?? g.requestedAt;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-4 px-5 py-3",
+        !last && "border-b border-border-subtle"
+      )}
+    >
+      <span className="text-[11px] font-mono text-text-muted w-32 shrink-0">
+        {new Date(ts).toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </span>
+
+      <span
+        className={cn(
+          "text-[10px] font-medium px-2 py-0.5 rounded w-16 text-center shrink-0",
+          jitStatusColors[g.status]
+        )}
+      >
+        {g.status}
+      </span>
+
+      <span className="text-[12px] text-text-primary shrink-0">
+        {g.agentName}
+      </span>
+
+      <div className="flex items-center gap-1 flex-1 min-w-0">
+        {g.permissions.map((p) => (
+          <span
+            key={p}
+            className={cn(
+              "text-[10px] font-mono px-1.5 py-0.5 rounded",
+              getPermColor(p)
+            )}
+          >
+            {p}
+          </span>
+        ))}
+      </div>
+
+      <span className="text-[11px] text-text-muted shrink-0">
+        {g.approvedBy ?? g.approvalMethod}
+      </span>
+
+      {g.revokeReason && (
+        <span
+          className="text-[10px] text-red-400 max-w-[200px] truncate shrink-0"
+          title={g.revokeReason}
+        >
+          {g.revokeReason}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// ── Roles & Permissions Sub-tab ──
+
+const RolesSubTab = () => {
+  const roles = Object.entries(rolePermissions) as [AccountRole, string[]][];
+
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      {roles.map(([role, perms]) => {
+        const count = accounts.filter((a) => a.role === role).length;
+        return (
+          <div
+            key={role}
+            className="bg-bg-secondary border border-border-subtle rounded-xl p-5"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span
+                className={cn(
+                  "text-[12px] font-medium px-2.5 py-1 rounded-md",
+                  roleBadgeColors[role]
+                )}
+              >
+                {role}
+              </span>
+              <span className="text-[11px] text-text-muted">
+                {count} {count === 1 ? "account" : "accounts"}
+              </span>
+            </div>
+            <p className="text-[12px] text-text-secondary mb-3">
+              {roleDescriptions[role]}
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {perms.map((p) => (
+                <span
+                  key={p}
+                  className={cn(
+                    "text-[10px] font-mono px-2 py-0.5 rounded",
+                    p === "*"
+                      ? "bg-accent/10 text-accent"
+                      : getPermColor(p)
+                  )}
+                >
+                  {p}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ─── API Keys Tab ───
 
 const ApiKeysTab = () => (
   <div>
@@ -209,6 +815,8 @@ const ApiKeysTab = () => (
     </div>
   </div>
 );
+
+// ─── Governance Tab ───
 
 const GovernanceTab = () => (
   <div className="space-y-4 max-w-2xl">
@@ -289,6 +897,8 @@ const GovernanceTab = () => (
     </div>
   </div>
 );
+
+// ─── Notifications Tab ───
 
 const channelStatus: {
   name: string;
@@ -388,13 +998,17 @@ const NotificationsTab = () => (
   </div>
 );
 
+// ─── Tab Content Map ───
+
 const tabContent: Record<TabKey, () => React.ReactElement> = {
   general: GeneralTab,
-  team: TeamTab,
+  accounts: AccountsTab,
   "api-keys": ApiKeysTab,
   governance: GovernanceTab,
   notifications: NotificationsTab,
 };
+
+// ─── Page ───
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("general");
@@ -405,7 +1019,7 @@ const SettingsPage = () => {
     <div>
       <PageHeader
         title="Settings"
-        subtitle="Platform configuration and team management"
+        subtitle="Platform configuration and account management"
       />
 
       <div className="flex gap-1 border-b border-border-subtle mb-6 pb-0">

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { type AgentConfig } from "@/data/mock";
 import { cn } from "@/lib/utils";
+import { Toggle } from "@/components/toggle";
 
 interface AgentConfigPanelProps {
   config: AgentConfig;
@@ -327,22 +328,10 @@ export const AgentConfigPanel = ({ config, onChange }: AgentConfigPanelProps) =>
             <ShieldCheck size={11} className="text-text-muted" />
             <span className={labelClassName}>Auto-Recover</span>
           </div>
-          <button
-            role="switch"
-            aria-checked={config.autoRecover}
-            onClick={() => onChange({ ...config, autoRecover: !config.autoRecover })}
-            className={cn(
-              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-              config.autoRecover ? "bg-emerald-500" : "bg-white/15"
-            )}
-          >
-            <span
-              className={cn(
-                "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform",
-                config.autoRecover ? "translate-x-[18px]" : "translate-x-[3px]"
-              )}
-            />
-          </button>
+          <Toggle
+            on={config.autoRecover}
+            onChange={() => onChange({ ...config, autoRecover: !config.autoRecover })}
+          />
         </div>
       </div>
     </div>

@@ -10,7 +10,7 @@
 
 **Fictional tenant**: Acme Electronics — e-commerce company running agents for market intelligence, inventory management, demand forecasting, customer support triage, and price optimization.
 
-**Agentic architecture showcase**: The Demand Forecasting agent (v2.0.0, status=running) demonstrates the platform's agentic loop pattern — a single Claude Opus 4.6 orchestrator with four tools (`manage_tasks`, `spawn_agents`, `query_data`, `run_analysis`) loops dynamically across 2–4 iterations, spawning 0..N parallel sub-agents per iteration until a confidence threshold (≥ 92%) is met. This mirrors Claude Code's team orchestration pattern. Runs are ~65 minutes with ~1.28M tokens and ~$48 cost, proving the platform handles long-running, multi-agent executions.
+**Agentic architecture showcase**: The Demand Forecasting agent (v2.0.0, status=running) demonstrates the platform's agentic loop pattern — a single Claude Opus 4.6 orchestrator with four tools (`manage_tasks`, `spawn_agents`, `query_data`, `run_analysis`) loops dynamically across 2–4 iterations, spawning 0..N parallel sub-agents per iteration until a confidence threshold (≥ 92%) is met. This mirrors Claude Code's team orchestration pattern. Runs are ~65 minutes with ~1.28M tokens and ~$132 total cost per run (including compute and infrastructure), proving the platform handles long-running, multi-agent executions.
 
 ---
 
@@ -93,7 +93,7 @@ The main dashboard stacks vertically:
 
 > `src/app/agents/[id]/page.tsx`
 
-The most complex page. Two tabs: **Builder** and **Runs**.
+The most complex page. Three tabs: **Builder**, **Runs**, and **Identity**.
 
 ### Builder Tab
 
@@ -119,6 +119,14 @@ The most complex page. Two tabs: **Builder** and **Runs**.
 - **Run Statistics**: 6-column header bar computing metrics from actual run data: total runs, success rate (emerald), avg duration, avg tokens, total cost, error count (red if > 0).
 - **Latest Execution**: Trace view of most recent run with expandable step rows (status icon, duration, input/output on expand). Kill reason banner if applicable.
 - **Run History**: Chronological list of all runs with status, time, duration, tokens, kill badge.
+
+### Identity Tab
+
+Configures the agent's non-human identity and JIT (Just-in-Time) authorization policy:
+- **Service Account Card**: Bound service account info (name, type, auth method, base permissions, IDP source) with status badge and last-synced timestamp.
+- **Authorization Policy Editor**: Editable JIT policy selector (auto-approve / policy-based / require-approval), max JIT duration dropdown, and requestable permissions pill list.
+- **Active JIT Grants**: Live grants with permission badges, countdown progress bars (time remaining vs total duration), approval method badge, and revoke button.
+- **Grant History**: Chronological table of past grants with status (active, expired, revoked, denied), permissions, timestamps, and revocation reasons.
 
 ---
 
@@ -181,7 +189,10 @@ The most complex page. Two tabs: **Builder** and **Runs**.
 5 tabs:
 
 - **General**: Platform name, URL, timezone, trace retention form fields
-- **Team**: Member table (name, email, role badge, last active) + invite button
+- **Accounts**: Three sub-tabs:
+  - **Directory**: Human and service account table with role badges (6 roles: org-admin, security-admin, agent-developer, agent-operator, auditor, read-only), account type filter (all/human/service), permission badges
+  - **JIT Authorization**: Service account JIT grant overview — active/expired/revoked grants with permission badges, countdown bars, approval method badges
+  - **Roles & Permissions**: Role reference grid showing each role's capabilities with permission category color coding
 - **API Keys**: Card list with name, masked prefix, permissions badges
 - **Governance**: Kill switch toggle, cost/error rate limit inputs, anomaly detection toggle, audit export
 - **Notifications**: Channel status grid (Email, Slack, Teams, Webhook) + alert rules with severity badges (critical=red, warning=amber)

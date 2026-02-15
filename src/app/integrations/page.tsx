@@ -10,7 +10,6 @@ import {
   ExternalLink,
   GitBranch,
   ArrowRight,
-  Link,
   GitFork,
   BadgeCheck,
   Terminal,
@@ -18,21 +17,21 @@ import {
   Settings2,
   Globe,
   RefreshCw,
-  Store,
-  Package,
+  ArrowUpCircle,
   Github,
   Shield,
+  Plug,
 } from "lucide-react";
 import {
   integrations,
   pluginMarketplaces,
   type Integration,
   type IntegrationSource,
-  type PluginMarketplace,
 } from "@/data/mock";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
+import { Toggle } from "@/components/toggle";
 
 const tabs = [
   { key: "data-source", label: "Data Sources", icon: Database },
@@ -219,67 +218,6 @@ const RenderedMarkdown = ({ content }: { content: string }) => {
   return <div>{elements}</div>;
 };
 
-/* ─── Plugin Marketplace Row ─── */
-const MarketplaceRow = ({ marketplace }: { marketplace: PluginMarketplace }) => {
-  const src = sourceConfig[marketplace.source];
-  const SrcIcon = src.icon;
-
-  return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.05] transition-colors group">
-      <div
-        className={cn(
-          "w-7 h-7 rounded-md flex items-center justify-center shrink-0",
-          marketplace.source === "kraken"
-            ? "bg-accent/10"
-            : marketplace.source === "custom"
-              ? "bg-white/[0.09]"
-              : "bg-white/[0.09]"
-        )}
-      >
-        <SrcIcon
-          size={13}
-          className={cn(
-            marketplace.source === "kraken"
-              ? "text-accent"
-              : "text-text-secondary"
-          )}
-        />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-medium text-text-primary truncate">
-            {marketplace.name}
-          </span>
-          <span
-            className={cn(
-              "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded",
-              marketplace.source === "kraken"
-                ? "text-accent bg-accent/8"
-                : marketplace.source === "custom"
-                  ? "text-text-muted bg-white/[0.07]"
-                  : "text-text-muted bg-white/[0.07]"
-            )}
-          >
-            {src.label}
-          </span>
-        </div>
-        <span className="text-[10px] font-mono text-text-muted">
-          {marketplace.installedCount}/{marketplace.pluginCount} installed
-        </span>
-      </div>
-      <a
-        href={marketplace.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-text-muted hover:text-text-secondary opacity-0 group-hover:opacity-100 transition-all p-1"
-        title={marketplace.url}
-      >
-        <ExternalLink size={12} />
-      </a>
-    </div>
-  );
-};
-
 /* ─── Compact Integration Row ─── */
 const IntegrationRow = ({
   integration,
@@ -402,7 +340,7 @@ const DetailPanel = ({
   const SrcIcon = src.icon;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
+    <div className="flex flex-col max-h-[calc(100vh-120px)] bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-subtle shrink-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -501,27 +439,65 @@ const DetailPanel = ({
           {integration.category === "skill" && (
             <>
               <span className="text-text-muted/40">|</span>
-              <div className="flex items-center gap-1.5">
+              <div
+                className="flex items-center gap-1.5 cursor-help"
+                title="Automated scan only. This does not guarantee the absence of all threats. Review skill content before deploying to production."
+              >
                 <Shield size={11} className="text-emerald-400" />
                 <span className="text-[11px] font-mono text-emerald-400/80">
-                  Clean
+                  No Threats Detected
                 </span>
               </div>
             </>
           )}
         </div>
 
-        {/* MCP Endpoint */}
-        {integration.mcpEndpoint && (
+        {/* MCP Transport */}
+        {integration.transport && (
           <div>
             <label className="text-[11px] font-mono uppercase tracking-wider text-text-muted mb-2 block">
-              MCP Endpoint
+              MCP Transport
             </label>
+            <div className="flex items-center gap-1 mb-2">
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                  integration.transport === "http"
+                    ? "bg-accent/15 text-accent"
+                    : "bg-white/[0.04] text-text-muted"
+                )}
+              >
+                <Globe size={11} />
+                HTTP
+              </button>
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                  integration.transport === "stdio"
+                    ? "bg-accent/15 text-accent"
+                    : "bg-white/[0.04] text-text-muted"
+                )}
+              >
+                <Terminal size={11} />
+                Command
+              </button>
+            </div>
             <div className="flex items-center gap-2 bg-bg-primary border border-border-subtle rounded-lg px-3 py-2">
-              <Globe size={12} className="text-text-muted shrink-0" />
-              <span className="text-[12px] font-mono text-text-secondary truncate">
-                {integration.mcpEndpoint}
-              </span>
+              {integration.transport === "http" ? (
+                <>
+                  <Globe size={12} className="text-text-muted shrink-0" />
+                  <span className="text-[12px] font-mono text-text-secondary truncate">
+                    {integration.mcpEndpoint}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Terminal size={12} className="text-text-muted shrink-0" />
+                  <span className="text-[12px] font-mono text-text-secondary truncate">
+                    {integration.mcpCommand}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -575,23 +551,7 @@ const DetailPanel = ({
                     {field.label}
                   </label>
                   {field.type === "toggle" ? (
-                    <div
-                      className={cn(
-                        "w-8 h-[18px] rounded-full relative shrink-0",
-                        field.value === "true"
-                          ? "bg-accent"
-                          : "bg-bg-tertiary border border-border-subtle"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "w-3 h-3 rounded-full bg-white absolute top-[3px]",
-                          field.value === "true"
-                            ? "left-[15px]"
-                            : "left-[3px]"
-                        )}
-                      />
-                    </div>
+                    <Toggle on={field.value === "true"} />
                   ) : (
                     <div className="flex-1 min-w-0 bg-bg-primary border border-border-subtle rounded-md px-2.5 py-1.5">
                       <span
@@ -624,7 +584,7 @@ const DetailPanel = ({
             <div className="bg-bg-primary border border-border-subtle rounded-lg overflow-hidden">
               <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-subtle bg-white/[0.05]">
                 <FileText size={10} className="text-text-muted" />
-                <span className="text-[10px] font-mono text-text-muted">Markdown</span>
+                <span className="text-[10px] font-mono text-text-muted">{integration.skillFilePath ?? "Markdown"}</span>
               </div>
               <div className="p-4 overflow-auto max-h-[400px]">
                 <RenderedMarkdown content={integration.skillContent} />
@@ -637,7 +597,7 @@ const DetailPanel = ({
       {/* Footer */}
       <div className="flex items-center justify-between px-5 py-3 border-t border-border-subtle shrink-0">
         <span className="text-[10px] font-mono text-text-muted">
-          {integration.mcpEndpoint ? "MCP Adapter" : "Native"} ·{" "}
+          {integration.transport === "http" ? "MCP · HTTP" : integration.transport === "stdio" ? "MCP · stdio" : "Native"} ·{" "}
           {integration.version ? `v${integration.version}` : "latest"}
         </span>
         <button className="bg-accent hover:bg-accent-hover text-white rounded-md px-3 py-1 text-[11px] font-medium transition-colors">
@@ -656,6 +616,9 @@ const IntegrationsPage = () => {
   );
   const [marketplaceUrl, setMarketplaceUrl] = useState("");
   const [marketplaceUrlFocused, setMarketplaceUrlFocused] = useState(false);
+  const [mcpServerUrl, setMcpServerUrl] = useState("");
+  const [mcpServerUrlFocused, setMcpServerUrlFocused] = useState(false);
+  const [mcpTransport, setMcpTransport] = useState<"http" | "stdio">("http");
 
   const filtered = integrations.filter((i) => i.category === activeTab);
   const subscribed = filtered.filter((i) => i.subscribed);
@@ -673,6 +636,25 @@ const IntegrationsPage = () => {
       .length,
   };
 
+  const marketplaceCategoryCounts = useMemo(() => {
+    const counts: Record<string, Record<string, { total: number; installed: number }>> = {};
+    for (const mp of pluginMarketplaces) {
+      counts[mp.id] = {
+        "data-source": { total: 0, installed: 0 },
+        tool: { total: 0, installed: 0 },
+        action: { total: 0, installed: 0 },
+        skill: { total: 0, installed: 0 },
+      };
+    }
+    for (const i of integrations) {
+      if (i.marketplaceId && counts[i.marketplaceId]) {
+        counts[i.marketplaceId][i.category].total++;
+        if (i.subscribed) counts[i.marketplaceId][i.category].installed++;
+      }
+    }
+    return counts;
+  }, []);
+
   return (
     <div>
       <PageHeader
@@ -680,75 +662,216 @@ const IntegrationsPage = () => {
         subtitle="Connect data sources, tools, actions, and skills to your agents"
       />
 
-      {/* Plugin Marketplaces */}
-      <div className="bg-bg-secondary border border-border-subtle rounded-xl mb-6 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border-subtle">
-          <div className="flex items-center gap-2">
-            <Store size={13} className="text-text-muted" />
-            <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted">
-              Plugin Marketplaces
-            </span>
-            <span className="text-[10px] font-mono text-text-muted ml-1">
-              {pluginMarketplaces.length} connected
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Package size={11} className="text-text-muted" />
-            <span className="text-[10px] font-mono text-text-muted">
-              {pluginMarketplaces.reduce((acc, s) => acc + s.installedCount, 0)} plugins installed
-            </span>
-          </div>
+      {/* Plugin Marketplaces + Connection inputs */}
+      <div className="flex gap-4 mb-5 items-stretch">
+        {/* Table */}
+        <div className="flex-1 min-w-0 bg-bg-secondary border border-white/[0.08] rounded-xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="text-left text-[11px] font-mono font-medium text-text-muted/70 uppercase tracking-wider px-4 py-2">
+                  Marketplace
+                </th>
+                <th className="text-center text-[11px] font-mono font-medium text-text-muted/70 uppercase tracking-wider px-2 py-2">
+                  Src
+                </th>
+                <th className="text-center text-[11px] font-mono font-medium text-text-muted/70 uppercase tracking-wider px-2 py-2">
+                  Tools
+                </th>
+                <th className="text-center text-[11px] font-mono font-medium text-text-muted/70 uppercase tracking-wider px-2 py-2">
+                  Acts
+                </th>
+                <th className="text-center text-[11px] font-mono font-medium text-text-muted/70 uppercase tracking-wider px-2 py-2">
+                  Skills
+                </th>
+                <th className="text-left text-[11px] font-mono font-medium text-text-muted/70 uppercase tracking-wider px-3 py-2">
+                  Ver
+                </th>
+                <th className="text-right text-[11px] font-mono font-medium text-text-muted/70 uppercase tracking-wider px-4 py-2">
+                  Updates
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {pluginMarketplaces.map((marketplace) => (
+                <tr
+                  key={marketplace.id}
+                  className="border-t border-white/[0.06] hover:bg-white/[0.03] transition-colors group"
+                >
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] text-text-secondary">
+                        {marketplace.name}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded",
+                          marketplace.source === "kraken"
+                            ? "text-accent/50 bg-accent/8"
+                            : "text-text-muted/60 bg-white/[0.05]"
+                        )}
+                      >
+                        {sourceConfig[marketplace.source].label}
+                      </span>
+                    </div>
+                  </td>
+                  {(["data-source", "tool", "action", "skill"] as const).map((cat) => {
+                    const { total, installed } = marketplaceCategoryCounts[marketplace.id]?.[cat] ?? { total: 0, installed: 0 };
+                    return (
+                      <td key={cat} className="px-2 py-2.5 text-center font-mono text-text-muted">
+                        {total > 0 ? (
+                          <span className="text-[11px]">
+                            {installed}<span className="text-[10px] text-text-muted/60">/{total}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-text-muted/40">&mdash;</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2.5 text-[11px] font-mono text-text-muted">
+                    {marketplace.version}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    {marketplace.source === "kraken" ? (
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-text-muted">
+                        <RefreshCw size={9} />
+                        Auto
+                      </span>
+                    ) : marketplace.updateAvailable ? (
+                      <button className="inline-flex items-center gap-1.5 text-[10px] font-mono text-accent hover:text-accent/80 transition-colors">
+                        <ArrowUpCircle size={9} />
+                        {marketplace.updateAvailable} avail
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-mono text-text-muted">
+                        Latest
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        <div className="grid grid-cols-4 gap-px bg-border-subtle">
-          {pluginMarketplaces.map((marketplace) => (
-            <MarketplaceRow key={marketplace.id} marketplace={marketplace} />
-          ))}
-        </div>
-
-        {/* Add marketplace from GitHub */}
-        <div className="px-4 py-3 border-t border-border-subtle">
-          <div
-            className={cn(
-              "flex items-center gap-3 transition-colors",
-            )}
-          >
-            <GitBranch size={13} className="text-text-muted shrink-0" />
-            <span className="text-[11px] text-text-muted shrink-0">
-              Add marketplace
-            </span>
-            <div
-              className={cn(
-                "flex items-center gap-2 flex-1 bg-bg-primary border rounded-md px-2.5 py-1.5 transition-colors",
-                marketplaceUrlFocused ? "border-accent/40" : "border-border-subtle"
-              )}
-            >
-              <Link size={10} className="text-text-muted shrink-0" />
-              <input
-                type="text"
-                value={marketplaceUrl}
-                onChange={(e) => setMarketplaceUrl(e.target.value)}
-                onFocus={() => setMarketplaceUrlFocused(true)}
-                onBlur={() => setMarketplaceUrlFocused(false)}
-                placeholder="github.com/org/kraken-plugins"
-                className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/80 focus:outline-none w-full font-mono"
-              />
+        {/* Connection inputs */}
+        <div className="w-[340px] shrink-0 space-y-3">
+          {/* Add marketplace */}
+          <div className="bg-bg-secondary border border-white/[0.08] rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2.5">
+              <GitBranch size={12} className="text-text-muted" />
+              <span className="text-[11px] font-mono text-text-muted uppercase tracking-wider">
+                Add marketplace
+              </span>
             </div>
-            <button
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors shrink-0",
-                marketplaceUrl.length > 0
-                  ? "bg-accent hover:bg-accent-hover text-white"
-                  : "bg-white/[0.07] text-text-muted"
-              )}
-            >
-              Connect
-              <ArrowRight size={10} />
-            </button>
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "flex items-center gap-2 flex-1 bg-bg-primary border rounded-md px-2.5 py-1.5 transition-colors",
+                  marketplaceUrlFocused ? "border-accent/40" : "border-border-subtle"
+                )}
+              >
+                <Github size={10} className="text-text-muted shrink-0" />
+                <input
+                  type="text"
+                  value={marketplaceUrl}
+                  onChange={(e) => setMarketplaceUrl(e.target.value)}
+                  onFocus={() => setMarketplaceUrlFocused(true)}
+                  onBlur={() => setMarketplaceUrlFocused(false)}
+                  placeholder="github.com/org/plugins"
+                  className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/80 focus:outline-none w-full font-mono"
+                />
+              </div>
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors shrink-0",
+                  marketplaceUrl.length > 0
+                    ? "bg-accent hover:bg-accent-hover text-white"
+                    : "bg-white/[0.07] text-text-muted"
+                )}
+              >
+                Connect
+                <ArrowRight size={10} />
+              </button>
+            </div>
           </div>
-          <p className="text-[10px] text-text-muted mt-2 ml-[26px]">
-            Add a GitHub repository as a plugin marketplace. Repos must follow the Kraken plugin spec.
-          </p>
+
+          {/* MCP server */}
+          <div className="bg-bg-secondary border border-white/[0.08] rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2.5">
+              <Plug size={12} className="text-text-muted" />
+              <span className="text-[11px] font-mono text-text-muted uppercase tracking-wider">
+                MCP server
+              </span>
+              <div className="flex items-center gap-0.5 ml-auto">
+                <button
+                  onClick={() => {
+                    setMcpTransport("http");
+                    setMcpServerUrl("");
+                  }}
+                  className={cn(
+                    "flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors",
+                    mcpTransport === "http"
+                      ? "bg-accent/15 text-accent"
+                      : "bg-white/[0.04] text-text-muted hover:text-text-secondary"
+                  )}
+                >
+                  <Globe size={9} />
+                  HTTP
+                </button>
+                <button
+                  onClick={() => {
+                    setMcpTransport("stdio");
+                    setMcpServerUrl("");
+                  }}
+                  className={cn(
+                    "flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors",
+                    mcpTransport === "stdio"
+                      ? "bg-accent/15 text-accent"
+                      : "bg-white/[0.04] text-text-muted hover:text-text-secondary"
+                  )}
+                >
+                  <Terminal size={9} />
+                  Cmd
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "flex items-center gap-2 flex-1 bg-bg-primary border rounded-md px-2.5 py-1.5 transition-colors",
+                  mcpServerUrlFocused ? "border-accent/40" : "border-border-subtle"
+                )}
+              >
+                {mcpTransport === "http" ? (
+                  <Globe size={10} className="text-text-muted shrink-0" />
+                ) : (
+                  <Terminal size={10} className="text-text-muted shrink-0" />
+                )}
+                <input
+                  type="text"
+                  value={mcpServerUrl}
+                  onChange={(e) => setMcpServerUrl(e.target.value)}
+                  onFocus={() => setMcpServerUrlFocused(true)}
+                  onBlur={() => setMcpServerUrlFocused(false)}
+                  placeholder={mcpTransport === "http" ? "https://host:port/mcp" : "npx @org/mcp-server"}
+                  className="bg-transparent text-[11px] text-text-primary placeholder:text-text-muted/80 focus:outline-none w-full font-mono"
+                />
+              </div>
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors shrink-0",
+                  mcpServerUrl.length > 0
+                    ? "bg-accent hover:bg-accent-hover text-white"
+                    : "bg-white/[0.07] text-text-muted"
+                )}
+              >
+                Connect
+                <ArrowRight size={10} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -838,6 +961,7 @@ const IntegrationsPage = () => {
               </div>
             </div>
           )}
+
         </div>
 
         {/* Detail panel */}

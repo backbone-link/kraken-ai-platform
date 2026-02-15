@@ -107,6 +107,8 @@ export interface PluginMarketplace {
   pluginCount: number;
   installedCount: number;
   connected: boolean;
+  version: string;
+  updateAvailable?: string;
 }
 
 export interface AgentMarketplace {
@@ -142,11 +144,14 @@ export interface Integration {
   enabled: boolean;
   source: IntegrationSource;
   sourceDetail?: string;
-  marketplaceId: string;
+  marketplaceId?: string;
   mcpEndpoint?: string;
+  mcpCommand?: string;
+  transport?: "http" | "stdio";
   version?: string;
   config?: IntegrationConfigField[];
   skillContent?: string;
+  skillFilePath?: string;
   githubUrl?: string;
 }
 
@@ -211,15 +216,65 @@ export interface ActivityItem {
   status: "success" | "error" | "warning" | "info";
 }
 
-// ─── Team Types ───
+// ─── Account Types ───
 
-export interface TeamMember {
+export type AccountType = "human" | "service";
+export type AccountRole = "org-admin" | "security-admin" | "agent-developer" | "agent-operator" | "auditor" | "read-only";
+export type AccountStatus = "active" | "suspended" | "pending-invite";
+export type JitPolicy = "auto-approve" | "policy-based" | "require-approval";
+export type JitStatus = "active" | "expired" | "revoked" | "pending-approval" | "denied";
+
+export interface Account {
   id: string;
+  type: AccountType;
   name: string;
   email: string;
-  role: "admin" | "editor" | "viewer";
+  role: AccountRole;
+  status: AccountStatus;
   lastActive: string;
+  createdAt: string;
+  department?: string;
+  ssoProvider?: string;
+  mfaEnabled?: boolean;
+  boundAgentId?: string;
+  boundAgentName?: string;
+  basePermissions?: string[];
+  maxJitDuration?: number;
+  jitPolicy?: JitPolicy;
+  idpSource?: string;
+  lastSyncAt?: string;
+  owner?: string;
+  authMethod?: string;
+  requestablePermissions?: string[];
 }
+
+export interface JitGrant {
+  id: string;
+  accountId: string;
+  accountName: string;
+  agentId: string;
+  agentName: string;
+  permissions: string[];
+  reason: string;
+  status: JitStatus;
+  requestedAt: string;
+  grantedAt?: string;
+  expiresAt?: string;
+  revokedAt?: string;
+  approvedBy?: string;
+  approvalMethod: "auto-policy" | "human" | "policy-engine";
+  taskContext?: string;
+  revokeReason?: string;
+}
+
+export const rolePermissions: Record<AccountRole, string[]> = {
+  "org-admin": ["*"],
+  "security-admin": ["accounts:manage", "audit:read", "audit:export", "governance:manage", "agents:pause", "agents:kill", "jit:approve", "jit:revoke"],
+  "agent-developer": ["agents:read", "agents:create", "agents:deploy", "pipelines:read", "pipelines:create", "integrations:read", "integrations:connect", "observability:read"],
+  "agent-operator": ["agents:read", "agents:execute", "agents:pause", "pipelines:read", "pipelines:execute", "observability:read", "jit:approve"],
+  "auditor": ["audit:read", "audit:export", "observability:read", "agents:read", "accounts:read", "governance:read"],
+  "read-only": ["agents:read", "pipelines:read", "observability:read", "integrations:read"],
+};
 
 export interface ApiKey {
   id: string;
@@ -586,7 +641,7 @@ export const agentFlows: Record<string, { nodes: FlowNode[]; edges: FlowEdge[] }
 };
 
 export const dashboardMetrics = {
-  totalRunsToday: 147,
+  totalRunsThisMonth: 1_247,
   successRate: 97.8,
   avgDuration: 2180,
   costToday: 328.47,
@@ -712,26 +767,7 @@ export const pluginMarketplaces: PluginMarketplace[] = [
     pluginCount: 42,
     installedCount: 10,
     connected: true,
-  },
-  {
-    id: "marketplace-crawl4ai",
-    name: "crawl4ai",
-    source: "community",
-    url: "https://github.com/crawl4ai/kraken-plugins",
-    description: "Web scraping and data extraction tools for Kraken",
-    pluginCount: 6,
-    installedCount: 1,
-    connected: true,
-  },
-  {
-    id: "marketplace-datastack",
-    name: "datastack-labs",
-    source: "community",
-    url: "https://github.com/datastack-labs/kraken-connectors",
-    description: "Data warehouse and analytics connectors",
-    pluginCount: 8,
-    installedCount: 0,
-    connected: true,
+    version: "3.1.0",
   },
   {
     id: "marketplace-internal",
@@ -742,26 +778,41 @@ export const pluginMarketplaces: PluginMarketplace[] = [
     pluginCount: 4,
     installedCount: 2,
     connected: true,
+    version: "0.5.1",
+  },
+  {
+    id: "marketplace-community-ecom",
+    name: "ecom-toolkit",
+    source: "community",
+    url: "https://github.com/ecom-community/kraken-toolkit",
+    description: "Community-maintained e-commerce integrations and analytics tools",
+    pluginCount: 18,
+    installedCount: 3,
+    connected: true,
+    version: "1.2.4",
+    updateAvailable: "1.3.0",
   },
 ];
 
 export const integrations: Integration[] = [
   // ─── Data Sources: Subscribed ───
-  { id: "int-01", name: "Amazon SP-API", category: "data-source", type: "Marketplace", status: "connected", lastSync: "2026-02-13T14:15:00Z", description: "Product listings, pricing, and order data from Amazon Seller Central", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/amazon-sp", version: "2.1.0", config: [
+  { id: "int-01", name: "Amazon SP-API", category: "data-source", type: "Marketplace", status: "connected", lastSync: "2026-02-13T14:15:00Z", description: "Product listings, pricing, and order data from Amazon Seller Central", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "https://connectors.kraken-ai.com/mcp/amazon-sp", transport: "http", version: "2.1.0", config: [
     { label: "Seller ID", value: "A3FHKL9EXAMPLE", type: "text" },
-    { label: "MWS Auth Token", value: "amzn.mws.tok-****-****", type: "secret" },
+    { label: "LWA Client ID", value: "amzn1.application-oa2-client.****", type: "secret" },
+    { label: "LWA Client Secret", value: "****", type: "secret" },
+    { label: "Refresh Token", value: "Atzr|****", type: "secret" },
     { label: "Region", value: "North America", type: "select" },
     { label: "Sync Interval", value: "15 min", type: "select" },
     { label: "Include FBA Data", value: "true", type: "toggle" },
   ] },
-  { id: "int-02", name: "Shopify", category: "data-source", type: "E-commerce", status: "connected", lastSync: "2026-02-13T14:20:00Z", description: "Storefront inventory, orders, and customer data", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/shopify", version: "1.8.2", config: [
+  { id: "int-02", name: "Shopify", category: "data-source", type: "E-commerce", status: "connected", lastSync: "2026-02-13T14:20:00Z", description: "Storefront inventory, orders, and customer data", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "https://connectors.kraken-ai.com/mcp/shopify", transport: "http", version: "1.8.2", config: [
     { label: "Store Domain", value: "acme-electronics.myshopify.com", type: "text" },
-    { label: "API Access Token", value: "shpat_****-****", type: "secret" },
+    { label: "API Access Token", value: "shpat_••••••••••••••••••••••••••••••••", type: "secret" },
     { label: "API Version", value: "2026-01", type: "select" },
     { label: "Sync Orders", value: "true", type: "toggle" },
     { label: "Sync Inventory", value: "true", type: "toggle" },
   ] },
-  { id: "int-03", name: "PostgreSQL", category: "data-source", type: "Database", status: "connected", lastSync: "2026-02-13T14:00:00Z", description: "Internal product catalog and historical sales data", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/postgres", version: "1.5.0", config: [
+  { id: "int-03", name: "PostgreSQL", category: "data-source", type: "Database", status: "connected", lastSync: "2026-02-13T14:00:00Z", description: "Internal product catalog and historical sales data", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "https://connectors.kraken-ai.com/mcp/postgres", transport: "http", version: "1.5.0", config: [
     { label: "Host", value: "db-prod.internal.acme.com", type: "text" },
     { label: "Port", value: "5432", type: "text" },
     { label: "Database", value: "product_catalog", type: "text" },
@@ -769,79 +820,100 @@ export const integrations: Integration[] = [
     { label: "Password", value: "****", type: "secret" },
     { label: "SSL Mode", value: "require", type: "select" },
   ] },
-  { id: "int-04", name: "Snowflake", category: "data-source", type: "Data Warehouse", status: "connected", lastSync: "2026-02-13T12:00:00Z", description: "Enterprise data warehouse with aggregated analytics", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/snowflake", version: "1.2.0", config: [
-    { label: "Account", value: "acme.us-east-1", type: "text" },
+  { id: "int-04", name: "Snowflake", category: "data-source", type: "Data Warehouse", status: "connected", lastSync: "2026-02-13T12:00:00Z", description: "Enterprise data warehouse with aggregated analytics", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "https://connectors.kraken-ai.com/mcp/snowflake", transport: "http", version: "1.2.0", config: [
+    { label: "Account", value: "acme-analytics", type: "text" },
     { label: "Warehouse", value: "ANALYTICS_WH", type: "text" },
     { label: "Database", value: "PROD_DW", type: "text" },
     { label: "Schema", value: "PUBLIC", type: "text" },
     { label: "Auth Method", value: "Key Pair", type: "select" },
   ] },
+  // ─── Data Sources: Standalone MCP ───
+  { id: "int-mcp-03", name: "Oracle Autonomous Database", category: "data-source", type: "Database", status: "connected", lastSync: "2026-02-14T09:12:00Z", description: "Oracle Autonomous Database built-in MCP Server — schema discovery (LIST_SCHEMAS, LIST_OBJECTS, GET_OBJECT_DETAILS) and read-only SQL access (EXECUTE_SQL) to marketplace transactional and analytical data", subscribed: true, enabled: true, source: "custom", sourceDetail: "Direct MCP", mcpEndpoint: "https://dataaccess.adb.us-ashburn-1.oraclecloudapps.com/adb/mcp/v1/databases/ocid1.autonomousdatabase.oc1.iad.anuwcl…", transport: "http", version: "26ai", config: [
+    { label: "Region", value: "us-ashburn-1", type: "select" },
+    { label: "Database OCID", value: "ocid1.autonomousdatabase.oc1.iad.anuwcl…", type: "text" },
+    { label: "Client ID", value: "ocid1.oauthclientid.oc1.iad.amaa…", type: "secret" },
+    { label: "Client Secret", value: "****", type: "secret" },
+    { label: "Default Schema", value: "MARKETPLACE", type: "select" },
+    { label: "Read Only", value: "true", type: "toggle" },
+  ] },
   // ─── Data Sources: Available ───
   { id: "int-05", name: "Oracle Delta Share", category: "data-source", type: "Delta Sharing", status: "disconnected", description: "Partner data feed via Delta Sharing protocol", subscribed: false, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.0.0" },
-  { id: "int-05b", name: "Google BigQuery", category: "data-source", type: "Data Warehouse", status: "disconnected", description: "Serverless data warehouse with built-in ML and geospatial analysis", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack-labs", marketplaceId: "marketplace-datastack", version: "0.9.1" },
+  { id: "int-05b", name: "Google BigQuery", category: "data-source", type: "Data Warehouse", status: "disconnected", description: "Serverless data warehouse with built-in ML and geospatial analysis", subscribed: false, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", version: "0.9.1" },
 
   // ─── Tools: Subscribed ───
-  { id: "int-06", name: "Perplexity Search", category: "tool", type: "Search", status: "connected", description: "AI-powered web search for real-time market research", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/perplexity", version: "1.3.0", config: [
+  { id: "int-06", name: "Perplexity", category: "tool", type: "Search", status: "connected", description: "Real-time web search, deep research, and reasoning via Sonar models (perplexity_search, perplexity_ask, perplexity_research, perplexity_reason)", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpCommand: "npx -y @perplexity-ai/mcp-server", transport: "stdio", version: "1.3.0", config: [
     { label: "API Key", value: "pplx-****-****", type: "secret" },
-    { label: "Model", value: "sonar-pro", type: "select" },
-    { label: "Max Results", value: "10", type: "text" },
+    { label: "Timeout (ms)", value: "600000", type: "text" },
+    { label: "Log Level", value: "ERROR", type: "select" },
   ] },
-  { id: "int-07", name: "Web Scraper", category: "tool", type: "Scraping", status: "connected", description: "Configurable web scraping for competitor monitoring", subscribed: true, enabled: true, source: "community", sourceDetail: "crawl4ai", marketplaceId: "marketplace-crawl4ai", mcpEndpoint: "mcp://community/crawl4ai/scraper", version: "0.8.4", config: [
-    { label: "Max Concurrent", value: "5", type: "text" },
-    { label: "Rate Limit (req/s)", value: "2", type: "text" },
-    { label: "Respect robots.txt", value: "true", type: "toggle" },
-    { label: "User Agent", value: "KrakenBot/1.0", type: "text" },
-  ] },
-  { id: "int-08", name: "Python Runtime", category: "tool", type: "Compute", status: "connected", description: "Sandboxed Python execution for custom analysis", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/python", version: "3.12.1", config: [
+  { id: "int-08", name: "Python Runtime", category: "tool", type: "Compute", status: "connected", description: "Sandboxed Python execution for custom analysis", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "https://connectors.kraken-ai.com/mcp/python", transport: "http", version: "3.12.1", config: [
     { label: "Python Version", value: "3.12", type: "select" },
     { label: "Memory Limit", value: "512 MB", type: "select" },
     { label: "Timeout", value: "30s", type: "text" },
     { label: "Network Access", value: "false", type: "toggle" },
   ] },
-  { id: "int-09", name: "Calculator", category: "tool", type: "Utility", status: "connected", description: "Mathematical operations and statistical functions", subscribed: true, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/calculator", version: "1.0.0", config: [
+  { id: "int-09", name: "Calculator", category: "tool", type: "Utility", status: "connected", description: "Mathematical operations and statistical functions", subscribed: true, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "https://connectors.kraken-ai.com/mcp/calculator", transport: "http", version: "1.0.0", config: [
     { label: "Precision", value: "15 digits", type: "select" },
   ] },
   // ─── Tools: Available ───
-  { id: "int-09b", name: "Wolfram Alpha", category: "tool", type: "Computation", status: "disconnected", description: "Advanced computation engine for scientific and mathematical queries", subscribed: false, enabled: false, source: "community", sourceDetail: "wolfram-contrib", marketplaceId: "marketplace-datastack", version: "0.5.0" },
-  { id: "int-09c", name: "Firecrawl", category: "tool", type: "Scraping", status: "disconnected", description: "High-performance web crawler with structured data extraction", subscribed: false, enabled: false, source: "community", sourceDetail: "mendableai", marketplaceId: "marketplace-crawl4ai", version: "1.1.0" },
+  { id: "int-09b", name: "Firecrawl", category: "tool", type: "Scraping", status: "disconnected", description: "Web Data API for AI — turn websites into LLM-ready markdown or structured data (scrape, crawl, search, map)", subscribed: false, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", version: "3.7.4" },
+  // ─── Tools: Standalone MCP ───
+  { id: "int-mcp-01", name: "Oracle Database", category: "tool", type: "Database", status: "connected", lastSync: "2026-02-14T09:12:00Z", description: "OCI Database Tools MCP Server — execute SQL scripts, list autonomous databases, manage database connections, and query table metadata via OCI Database Tools service", subscribed: true, enabled: true, source: "custom", sourceDetail: "Direct MCP", mcpCommand: "uvx oracle.dbtools-mcp-server@latest", transport: "stdio", version: "0.1.0", config: [
+    { label: "OCI Config Profile", value: "DEFAULT", type: "select" },
+    { label: "Compartment OCID", value: "ocid1.compartment.oc1..aaaaaa…", type: "text" },
+    { label: "DB Connection Name", value: "prod-marketplace-adb", type: "text" },
+    { label: "Region", value: "us-ashburn-1", type: "select" },
+    { label: "Log Level", value: "ERROR", type: "select" },
+  ] },
+  { id: "int-mcp-02", name: "Playwright", category: "tool", type: "Browser Automation", status: "connected", lastSync: "2026-02-14T11:45:00Z", description: "Microsoft Playwright MCP Server — browser automation for competitor monitoring, scraping, and UI testing", subscribed: true, enabled: true, source: "custom", sourceDetail: "Direct MCP", mcpCommand: "npx @playwright/mcp@latest", transport: "stdio", version: "0.0.64", config: [
+    { label: "Headless", value: "true", type: "toggle" },
+    { label: "Browser", value: "Chromium", type: "select" },
+    { label: "Viewport", value: "1280x720", type: "text" },
+    { label: "Navigation Timeout", value: "60000", type: "text" },
+  ] },
 
   // ─── Actions: Subscribed ───
-  { id: "int-10", name: "Email (SMTP)", category: "action", type: "Notification", status: "connected", description: "Send emails via configured SMTP server", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/smtp", version: "1.1.0", config: [
+  { id: "int-10", name: "Email (SMTP)", category: "action", type: "Notification", status: "connected", description: "Send emails via configured SMTP server", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "https://connectors.kraken-ai.com/mcp/smtp", transport: "http", version: "1.1.0", config: [
     { label: "SMTP Host", value: "smtp.acme-electronics.com", type: "text" },
     { label: "Port", value: "587", type: "text" },
     { label: "From Address", value: "kraken@acme-electronics.com", type: "text" },
     { label: "Auth Password", value: "****", type: "secret" },
     { label: "TLS", value: "true", type: "toggle" },
   ] },
-  { id: "int-11", name: "Slack", category: "action", type: "Notification", status: "connected", lastSync: "2026-02-13T14:15:00Z", description: "Post messages and alerts to Slack channels", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/slack", version: "2.0.1", config: [
-    { label: "Workspace", value: "acme-electronics.slack.com", type: "text" },
-    { label: "Bot Token", value: "xoxb-****-****", type: "secret" },
+  { id: "int-11", name: "Slack", category: "action", type: "Notification", status: "connected", lastSync: "2026-02-13T14:15:00Z", description: "Post messages and alerts to Slack channels", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "https://connectors.kraken-ai.com/mcp/slack", transport: "http", version: "2.0.1", config: [
+    { label: "Workspace", value: "acme-electronics", type: "text" },
+    { label: "Bot Token", value: "xoxb-****-****-****", type: "secret" },
     { label: "Default Channel", value: "#kraken-alerts", type: "text" },
     { label: "Thread Replies", value: "true", type: "toggle" },
   ] },
-  { id: "int-12", name: "Inventory Update API", category: "action", type: "System", status: "connected", description: "Push inventory adjustments to warehouse management system", subscribed: true, enabled: true, source: "custom", sourceDetail: "internal/wms-bridge", marketplaceId: "marketplace-internal", mcpEndpoint: "mcp://custom/internal/wms-bridge", version: "0.3.0", config: [
+  { id: "int-12", name: "Inventory Update API", category: "action", type: "System", status: "connected", description: "Push inventory adjustments to warehouse management system", subscribed: true, enabled: true, source: "custom", sourceDetail: "internal/wms-bridge", marketplaceId: "marketplace-internal", mcpEndpoint: "https://wms.internal.acme.com/mcp", transport: "http", version: "0.3.0", config: [
     { label: "API Base URL", value: "https://wms.internal.acme.com/api/v2", type: "text" },
     { label: "API Key", value: "wms-****-****", type: "secret" },
     { label: "Batch Size", value: "100", type: "text" },
     { label: "Dry Run", value: "false", type: "toggle" },
   ] },
-  { id: "int-13", name: "Price Adjustment API", category: "action", type: "System", status: "connected", description: "Update product pricing across connected marketplaces", subscribed: true, enabled: false, source: "custom", sourceDetail: "internal/pricing-sync", marketplaceId: "marketplace-internal", mcpEndpoint: "mcp://custom/internal/pricing-sync", version: "0.2.1", config: [
+  { id: "int-13", name: "Price Adjustment API", category: "action", type: "System", status: "connected", description: "Update product pricing across connected marketplaces", subscribed: true, enabled: false, source: "custom", sourceDetail: "internal/pricing-sync", marketplaceId: "marketplace-internal", mcpEndpoint: "https://pricing.internal.acme.com/mcp", transport: "http", version: "0.2.1", config: [
     { label: "API Endpoint", value: "https://pricing.internal.acme.com/sync", type: "text" },
     { label: "Auth Token", value: "price-****-****", type: "secret" },
     { label: "Max Price Delta", value: "15%", type: "text" },
     { label: "Require Approval", value: "true", type: "toggle" },
   ] },
-  { id: "int-13b", name: "Zendesk", category: "action", type: "Ticketing", status: "connected", lastSync: "2026-02-13T14:28:00Z", description: "Ticket management, classification, and routing via Zendesk Support API", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "mcp://connectors.kraken-ai.com/zendesk", version: "1.6.0", config: [
+  { id: "int-13b", name: "Zendesk", category: "action", type: "Ticketing", status: "connected", lastSync: "2026-02-13T14:28:00Z", description: "Ticket management, classification, and routing via Zendesk Support API", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", mcpEndpoint: "https://connectors.kraken-ai.com/mcp/zendesk", transport: "http", version: "1.6.0", config: [
     { label: "Subdomain", value: "acme-electronics", type: "text" },
-    { label: "API Token", value: "zd-****-****", type: "secret" },
-    { label: "Webhook Secret", value: "whsec-****", type: "secret" },
+    { label: "Email", value: "[email protected]", type: "text" },
+    { label: "API Token", value: "••••••••••••••••••••••••••••••••••••", type: "secret" },
+    { label: "Webhook Secret", value: "••••••••••••••••••••••==", type: "secret" },
     { label: "Auto-Assign", value: "true", type: "toggle" },
   ] },
   // ─── Actions: Available ───
   { id: "int-14", name: "Webhook Dispatcher", category: "action", type: "Integration", status: "disconnected", description: "Dispatch webhooks to external systems on trigger events", subscribed: false, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.4.0" },
-  { id: "int-14b", name: "Microsoft Teams", category: "action", type: "Notification", status: "disconnected", description: "Post alerts and reports to Microsoft Teams channels", subscribed: false, enabled: false, source: "community", sourceDetail: "ms-contrib", marketplaceId: "marketplace-datastack", version: "0.7.0" },
+  { id: "int-14b", name: "Microsoft Teams", category: "action", type: "Notification", status: "disconnected", description: "Post alerts and reports to Microsoft Teams channels", subscribed: false, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", version: "0.7.0" },
+  // ─── Community: ecom-toolkit ───
+  { id: "int-com-01", name: "eBay Listings", category: "data-source", type: "Marketplace", status: "connected", lastSync: "2026-02-13T13:50:00Z", description: "Listing data, sales history, and seller metrics from eBay", subscribed: true, enabled: true, source: "community", marketplaceId: "marketplace-community-ecom", mcpEndpoint: "https://ecom-toolkit.dev/mcp/ebay", transport: "http", version: "0.8.3" },
+  { id: "int-com-02", name: "Margin Calculator", category: "tool", type: "Analytics", status: "connected", description: "Profit margin analysis across channels with fee breakdowns", subscribed: true, enabled: true, source: "community", marketplaceId: "marketplace-community-ecom", mcpEndpoint: "https://ecom-toolkit.dev/mcp/margin-calc", transport: "http", version: "1.0.1" },
+  { id: "int-com-03", name: "Review Aggregator", category: "tool", type: "Analytics", status: "connected", description: "Aggregate and analyze product reviews across marketplaces", subscribed: true, enabled: true, source: "community", marketplaceId: "marketplace-community-ecom", mcpEndpoint: "https://ecom-toolkit.dev/mcp/reviews", transport: "http", version: "0.6.0" },
   // ─── Skills: Installed ───
-  { id: "int-sk1", name: "Competitor Deep Dive", category: "skill", type: "Analysis", status: "connected", description: "Multi-source competitor analysis with pricing matrix, trend identification, and market positioning insights", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "2.0.1", githubUrl: "https://github.com/kraken-ai/skills/tree/main/competitor-deep-dive", skillContent: `# Competitor Deep Dive
+  { id: "int-sk1", name: "Competitor Deep Dive", category: "skill", type: "Analysis", status: "connected", description: "Multi-source competitor analysis with pricing matrix, trend identification, and market positioning insights", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "2.0.1", githubUrl: "https://github.com/kraken-ai/skills/tree/main/competitor-deep-dive", skillFilePath: "skills/competitor-deep-dive/SKILL.md", skillContent: `# Competitor Deep Dive
 
 This skill performs comprehensive competitor analysis. When activated, follow these instructions exactly.
 
@@ -882,16 +954,11 @@ Always include a \`confidence_score\` (0.0-1.0) and \`sources_used\` count in th
   { id: "int-sk3", name: "Response Drafter", category: "skill", type: "Communication", status: "connected", description: "Context-aware customer response generation with tone matching, knowledge base grounding, and brand voice consistency", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.5.2" },
   { id: "int-sk4", name: "Price Validator", category: "skill", type: "Compliance", status: "connected", description: "Validate proposed price changes against business rules, margin thresholds, MAP policies, and competitive floor limits", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.3.0" },
   { id: "int-sk5", name: "Inventory Reconciler", category: "skill", type: "Automation", status: "connected", description: "Cross-channel inventory reconciliation with automatic discrepancy detection and corrective action generation", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.6.0" },
-  { id: "int-sk6", name: "Ticket Summarizer", category: "skill", type: "Communication", status: "connected", description: "Extract priority signals, product category, customer sentiment, and key details from support tickets for fast routing", subscribed: true, enabled: true, source: "community", sourceDetail: "crawl4ai", marketplaceId: "marketplace-crawl4ai", version: "0.9.3" },
+  { id: "int-sk6", name: "Ticket Summarizer", category: "skill", type: "Communication", status: "connected", description: "Extract priority signals, product category, customer sentiment, and key details from support tickets for fast routing", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "0.9.3" },
   { id: "int-sk7", name: "Bulk Updater", category: "skill", type: "Automation", status: "connected", description: "Batch operations for inventory adjustments and pricing updates across thousands of SKUs with rollback support", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.2.0" },
   { id: "int-sk8", name: "Compliance Auditor", category: "skill", type: "Compliance", status: "connected", description: "Generate audit trails, compliance documentation, and regulatory reports for agent operations", subscribed: true, enabled: true, source: "kraken", marketplaceId: "marketplace-kraken", version: "1.1.0" },
   // ─── Skills: Available ───
-  { id: "int-sk9", name: "Demand Prophet", category: "skill", type: "Analysis", status: "disconnected", description: "Statistical demand forecasting with seasonal decomposition, trend projection, and confidence intervals", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", marketplaceId: "marketplace-datastack", version: "0.8.0" },
-  { id: "int-sk10", name: "Market Pulse", category: "skill", type: "Analysis", status: "disconnected", description: "Real-time market trend scanning with signal detection, anomaly alerts, and competitive intelligence feeds", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", marketplaceId: "marketplace-datastack", version: "0.6.1" },
-  { id: "int-sk11", name: "Escalation Brief", category: "skill", type: "Communication", status: "disconnected", description: "Generate context-rich escalation summaries with ticket history, customer profile, and recommended actions", subscribed: false, enabled: false, source: "community", sourceDetail: "crawl4ai", marketplaceId: "marketplace-crawl4ai", version: "0.4.0" },
   { id: "int-sk12", name: "Safety Scanner", category: "skill", type: "Compliance", status: "disconnected", description: "Content safety, PII detection, prompt injection defense, and policy compliance checking for agent I/O", subscribed: false, enabled: false, source: "kraken", marketplaceId: "marketplace-kraken", version: "2.1.0" },
-  { id: "int-sk13", name: "Price Lab", category: "skill", type: "Optimization", status: "disconnected", description: "Set up and analyze price A/B tests with statistical significance calculation and revenue impact projection", subscribed: false, enabled: false, source: "community", sourceDetail: "datastack", marketplaceId: "marketplace-datastack", version: "0.3.0" },
-  { id: "int-sk14", name: "Sentiment Radar", category: "skill", type: "Analysis", status: "disconnected", description: "Multi-channel customer sentiment analysis with trend detection across reviews, tickets, and social mentions", subscribed: false, enabled: false, source: "community", sourceDetail: "crawl4ai", marketplaceId: "marketplace-crawl4ai", version: "0.5.2" },
 ];
 
 export const computeClusters: ComputeCluster[] = [
@@ -1389,11 +1456,34 @@ export const modelProviders: ModelProvider[] = [
   { id: "mp-004", name: "Google", status: "inactive", models: ["Gemini 3 Flash", "Gemini 3 Pro"], keyConfigured: false, totalRequests: 0, totalTokens: 0, totalCost: 0 },
 ];
 
-export const teamMembers: TeamMember[] = [
-  { id: "usr-001", name: "Jordan Reeves", email: "jordan@acme-electronics.com", role: "admin", lastActive: "2026-02-13T14:30:00Z" },
-  { id: "usr-002", name: "Sarah Chen", email: "sarah@acme-electronics.com", role: "editor", lastActive: "2026-02-13T13:45:00Z" },
-  { id: "usr-003", name: "Marcus Rodriguez", email: "marcus.r@acme-electronics.com", role: "editor", lastActive: "2026-02-13T11:20:00Z" },
-  { id: "usr-004", name: "Priya Patel", email: "priya@acme-electronics.com", role: "viewer", lastActive: "2026-02-12T16:00:00Z" },
+export const accounts: Account[] = [
+  // Human accounts
+  { id: "usr-001", type: "human", name: "Jordan Reeves", email: "jordan@acme-electronics.com", role: "org-admin", status: "active", lastActive: "2026-02-13T14:28:00Z", createdAt: "2025-06-01T10:00:00Z", department: "Engineering", ssoProvider: "Okta", mfaEnabled: true },
+  { id: "usr-002", type: "human", name: "Sarah Chen", email: "sarah@acme-electronics.com", role: "agent-developer", status: "active", lastActive: "2026-02-13T11:15:00Z", createdAt: "2025-08-15T14:00:00Z", department: "Data Science", ssoProvider: "Okta", mfaEnabled: true },
+  { id: "usr-003", type: "human", name: "Marcus Rodriguez", email: "marcus.r@acme-electronics.com", role: "agent-operator", status: "active", lastActive: "2026-02-12T17:45:00Z", createdAt: "2025-09-01T09:00:00Z", department: "Operations", ssoProvider: "Okta", mfaEnabled: true },
+  { id: "usr-004", type: "human", name: "Priya Patel", email: "priya@acme-electronics.com", role: "auditor", status: "active", lastActive: "2026-02-11T09:30:00Z", createdAt: "2025-10-10T11:00:00Z", department: "Compliance", ssoProvider: "Okta", mfaEnabled: true },
+  // Service accounts
+  { id: "svc-001", type: "service", name: "svc-market-intel", email: "svc-market-intel@agents.kraken.internal", role: "agent-operator", status: "active", lastActive: "2026-02-13T14:30:00Z", createdAt: "2025-11-01T10:00:00Z", boundAgentId: "agt-001", boundAgentName: "Market Intelligence", basePermissions: ["data:read", "integrations:read"], maxJitDuration: 60, jitPolicy: "auto-approve", idpSource: "Okta", lastSyncAt: "2026-02-14T08:15:00Z", owner: "Sarah Chen", authMethod: "OIDC + mTLS", requestablePermissions: ["data:write", "integrations:write"] },
+  { id: "svc-002", type: "service", name: "svc-inventory", email: "svc-inventory@agents.kraken.internal", role: "agent-operator", status: "active", lastActive: "2026-02-13T13:50:00Z", createdAt: "2025-11-01T10:00:00Z", boundAgentId: "agt-002", boundAgentName: "Inventory Intelligence", basePermissions: ["data:read", "data:write"], maxJitDuration: 30, jitPolicy: "policy-based", idpSource: "Okta", lastSyncAt: "2026-02-14T08:15:00Z", owner: "Marcus Rodriguez", authMethod: "OIDC + mTLS", requestablePermissions: ["data:delete", "integrations:write"] },
+  { id: "svc-003", type: "service", name: "svc-demand-forecast", email: "svc-demand-forecast@agents.kraken.internal", role: "agent-operator", status: "active", lastActive: "2026-02-13T14:29:00Z", createdAt: "2025-11-15T09:00:00Z", boundAgentId: "agt-003", boundAgentName: "Demand Forecasting", basePermissions: ["data:read", "compute:read"], maxJitDuration: 120, jitPolicy: "require-approval", idpSource: "Okta", lastSyncAt: "2026-02-14T08:12:00Z", owner: "Jordan Reeves", authMethod: "OIDC + mTLS", requestablePermissions: ["compute:execute", "agents:spawn", "data:write", "pipelines:execute"] },
+  { id: "svc-004", type: "service", name: "svc-price-optimizer", email: "svc-price-optimizer@agents.kraken.internal", role: "agent-operator", status: "suspended", lastActive: "2026-02-12T22:47:00Z", createdAt: "2025-12-01T10:00:00Z", boundAgentId: "agt-005", boundAgentName: "Price Optimization", basePermissions: ["data:read"], maxJitDuration: 15, jitPolicy: "require-approval", idpSource: "Okta", lastSyncAt: "2026-02-14T07:30:00Z", owner: "Marcus Rodriguez", authMethod: "OIDC + mTLS", requestablePermissions: ["data:write", "integrations:write"] },
+];
+
+export const jitGrants: JitGrant[] = [
+  // Active + auto-approved
+  { id: "jit-001", accountId: "svc-001", accountName: "svc-market-intel", agentId: "agt-001", agentName: "Market Intelligence", permissions: ["data:write"], reason: "Writing arbitrage alert results to shared datastore for downstream consumers", status: "active", requestedAt: "2026-02-14T09:00:00Z", grantedAt: "2026-02-14T09:00:01Z", expiresAt: "2026-02-14T10:00:00Z", approvalMethod: "auto-policy", taskContext: "Arbitrage alerting cycle #247" },
+  // Active + human-approved
+  { id: "jit-002", accountId: "svc-003", accountName: "svc-demand-forecast", agentId: "agt-003", agentName: "Demand Forecasting", permissions: ["compute:execute", "agents:spawn"], reason: "Spawning parallel sub-agents for Q2 demand model retraining across 12 product categories", status: "active", requestedAt: "2026-02-14T05:50:00Z", grantedAt: "2026-02-14T05:52:00Z", expiresAt: "2026-02-14T07:52:00Z", approvedBy: "Jordan Reeves", approvalMethod: "human", taskContext: "Q2 forecast model retraining" },
+  // Pending approval
+  { id: "jit-003", accountId: "svc-002", accountName: "svc-inventory", agentId: "agt-002", agentName: "Inventory Intelligence", permissions: ["data:delete"], reason: "Cleanup of 2,340 orphaned SKU records from decommissioned warehouse WH-07", status: "pending-approval", requestedAt: "2026-02-14T09:22:00Z", approvalMethod: "policy-engine", taskContext: "Orphaned SKU cleanup batch" },
+  // Expired — naturally timed out
+  { id: "jit-004", accountId: "svc-001", accountName: "svc-market-intel", agentId: "agt-001", agentName: "Market Intelligence", permissions: ["integrations:write"], reason: "Updating competitor pricing feed configuration after API schema change", status: "expired", requestedAt: "2026-02-13T14:00:00Z", grantedAt: "2026-02-13T14:00:01Z", expiresAt: "2026-02-13T15:00:00Z", approvalMethod: "auto-policy", taskContext: "Feed config migration v3.2" },
+  // Expired — another natural expiry
+  { id: "jit-005", accountId: "svc-003", accountName: "svc-demand-forecast", agentId: "agt-003", agentName: "Demand Forecasting", permissions: ["data:write", "pipelines:execute"], reason: "Writing forecast outputs and triggering distribution pipeline", status: "expired", requestedAt: "2026-02-13T06:00:00Z", grantedAt: "2026-02-13T06:02:00Z", expiresAt: "2026-02-13T08:02:00Z", approvedBy: "Marcus Rodriguez", approvalMethod: "human", taskContext: "Daily forecast run #189" },
+  // Revoked by guardrail
+  { id: "jit-006", accountId: "svc-004", accountName: "svc-price-optimizer", agentId: "agt-005", agentName: "Price Optimization", permissions: ["data:write", "integrations:write"], reason: "Pushing dynamic pricing updates to marketplace connectors", status: "revoked", requestedAt: "2026-02-13T22:30:00Z", grantedAt: "2026-02-13T22:31:00Z", expiresAt: "2026-02-13T22:46:00Z", revokedAt: "2026-02-13T22:47:00Z", approvedBy: "Marcus Rodriguez", approvalMethod: "human", revokeReason: "Price floor guardrail triggered — agent attempted to set price below $2.99 minimum", taskContext: "Dynamic repricing session" },
+  // Denied
+  { id: "jit-007", accountId: "svc-002", accountName: "svc-inventory", agentId: "agt-002", agentName: "Inventory Intelligence", permissions: ["integrations:admin"], reason: "Requesting admin access to reconfigure warehouse management connector", status: "denied", requestedAt: "2026-02-12T11:00:00Z", approvalMethod: "policy-engine", revokeReason: "Permission scope too broad for automated operations — requires human-initiated change request", taskContext: "WMS connector reconfiguration" },
 ];
 
 export const apiKeys: ApiKey[] = [
@@ -1951,7 +2041,7 @@ export const detailedAuditTrail: DetailedAuditEntry[] = [
   { id: "daud-11", timestamp: "2026-02-13T08:28:00Z", agent: "\u2014", action: "login_failed", status: "error", details: "Invalid MFA token \u2014 2 attempts remaining", duration: 0, user: "unknown@acme.com", ipAddress: "198.51.100.77", securityRelevant: true, category: "access" },
   { id: "daud-12", timestamp: "2026-02-12T22:00:00Z", agent: "Inventory Intelligence", agentId: "agt-002", action: "sync_inventory", status: "success", details: "Nightly full sync \u2014 4,891 SKUs processed", duration: 12400, user: "system", ipAddress: "10.0.1.42", securityRelevant: false, category: "execution" },
   { id: "daud-13", timestamp: "2026-02-12T18:00:00Z", agent: "Market Intelligence", agentId: "agt-001", action: "data_export", status: "success", details: "Market report exported to S3 (s3://reports/market/2026-02-12.parquet)", duration: 2400, user: "Sarah Chen", ipAddress: "192.168.1.108", securityRelevant: true, category: "data_access" },
-  { id: "daud-14", timestamp: "2026-02-12T16:00:00Z", agent: "\u2014", action: "permission_change", status: "warning", details: "Priya Patel role changed from 'editor' to 'viewer'", duration: 0, user: "Jordan Reeves", ipAddress: "192.168.1.105", securityRelevant: true, category: "config_change" },
+  { id: "daud-14", timestamp: "2026-02-12T16:00:00Z", agent: "\u2014", action: "permission_change", status: "warning", details: "Priya Patel role changed from 'agent-developer' to 'auditor'", duration: 0, user: "Jordan Reeves", ipAddress: "192.168.1.105", securityRelevant: true, category: "config_change" },
   { id: "daud-15", timestamp: "2026-02-12T14:00:00Z", agent: "Customer Support Triage", agentId: "agt-004", action: "model_timeout", status: "error", details: "GPT-5-mini timeout after 30s \u2014 ticket #4815 not classified", duration: 1200, user: "system", ipAddress: "10.0.1.42", securityRelevant: true, category: "alert" },
 ];
 

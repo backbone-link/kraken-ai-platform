@@ -21,8 +21,8 @@ import {
   Position,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { agents, agentFlows, detailedAgentRuns, agentConfigs } from "@/data/mock";
-import type { TraceStep, IntegrationSource } from "@/data/mock";
+import { agents, agentFlows, detailedAgentRuns, agentConfigs, accounts, jitGrants } from "@/data/mock";
+import type { TraceStep, IntegrationSource, JitGrant, JitStatus, JitPolicy } from "@/data/mock";
 import type { AgentConfig } from "@/data/mock";
 import { AgentConfigPanel } from "@/components/agent-config-panel";
 import {
@@ -51,6 +51,10 @@ import {
   Bot,
   FileText,
   X,
+  Lock,
+  LockOpen,
+  RefreshCw,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -917,7 +921,7 @@ const AgentDetailPage = () => {
   );
   const latestRun = agentRuns[0];
 
-  const [activeTab, setActiveTab] = useState<"builder" | "runs">("builder");
+  const [activeTab, setActiveTab] = useState<"builder" | "runs" | "identity">("builder");
 
   const isRunning = agent.status === "running";
   const simulationRun = agentRuns[0];
@@ -1266,6 +1270,17 @@ const AgentDetailPage = () => {
         >
           Runs
         </button>
+        <button
+          onClick={() => setActiveTab("identity")}
+          className={cn(
+            "text-[13px] font-medium pb-2.5 -mb-px transition-colors",
+            activeTab === "identity"
+              ? "text-text-primary border-b-2 border-accent"
+              : "text-text-muted hover:text-text-secondary"
+          )}
+        >
+          Identity
+        </button>
       </div>
 
       {/* Builder Tab */}
@@ -1528,6 +1543,458 @@ const AgentDetailPage = () => {
               <p className="text-[13px] text-text-muted">No runs recorded for this agent.</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Identity Tab */}
+      {activeTab === "identity" && (
+        <AgentIdentityTab agentId={agent.id} />
+      )}
+    </div>
+  );
+};
+
+// ─── Identity Tab ───
+
+const jitStatusColors: Record<JitStatus, string> = {
+  active: "bg-emerald-400/15 text-emerald-400",
+  "pending-approval": "bg-amber-400/15 text-amber-400",
+  expired: "bg-bg-tertiary text-text-muted",
+  revoked: "bg-red-400/15 text-red-400",
+  denied: "bg-red-400/15 text-red-400",
+};
+
+const permColor = (perm: string) => {
+  const colors: Record<string, string> = {
+    data: "text-sky-400 bg-sky-400/10",
+    integrations: "text-amber-400 bg-amber-400/10",
+    compute: "text-pink-400 bg-pink-400/10",
+    agents: "text-purple-400 bg-purple-400/10",
+    pipelines: "text-teal-400 bg-teal-400/10",
+  };
+  return colors[perm.split(":")[0]] ?? "text-text-muted bg-bg-tertiary";
+};
+
+const allBasePermissions = [
+  "data:read", "data:write",
+  "integrations:read", "integrations:write",
+  "compute:read", "compute:execute",
+  "agents:read",
+  "pipelines:read",
+];
+
+const allElevatedPermissions = [
+  "data:write", "data:delete",
+  "integrations:write", "integrations:admin",
+  "compute:execute",
+  "agents:spawn", "agents:pause", "agents:kill",
+  "pipelines:execute",
+];
+
+const jitPolicyOptions: { value: JitPolicy; label: string }[] = [
+  { value: "auto-approve", label: "Auto-Approve" },
+  { value: "policy-based", label: "Policy-Based" },
+  { value: "require-approval", label: "Require Approval" },
+];
+
+const AgentIdentityTab = ({ agentId }: { agentId: string }) => {
+  const svcAccount = accounts.find(
+    (a) => a.type === "service" && a.boundAgentId === agentId
+  );
+  const agentGrants = jitGrants.filter((g) => g.agentId === agentId);
+  const activeGrants = agentGrants.filter(
+    (g) => g.status === "active" || g.status === "pending-approval"
+  );
+  const pastGrants = agentGrants.filter(
+    (g) => g.status !== "active" && g.status !== "pending-approval"
+  );
+
+  const [unlocked, setUnlocked] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [draft, setDraft] = useState({
+    basePermissions: svcAccount?.basePermissions ?? [],
+    jitPolicy: (svcAccount?.jitPolicy ?? "require-approval") as JitPolicy,
+    maxJitDuration: svcAccount?.maxJitDuration ?? 30,
+    requestablePermissions: svcAccount?.requestablePermissions ?? [],
+  });
+
+  if (!svcAccount) {
+    return (
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-8 text-center">
+        <p className="text-[13px] text-text-muted">
+          No service account bound to this agent.
+        </p>
+      </div>
+    );
+  }
+
+  const handleUnlock = () => {
+    if (unlocked) {
+      setDraft({
+        basePermissions: [...(svcAccount.basePermissions ?? [])],
+        jitPolicy: (svcAccount.jitPolicy ?? "require-approval") as JitPolicy,
+        maxJitDuration: svcAccount.maxJitDuration ?? 30,
+        requestablePermissions: [...(svcAccount.requestablePermissions ?? [])],
+      });
+    }
+    setUnlocked(!unlocked);
+  };
+
+  const handleApply = () => {
+    setUnlocked(false);
+    setApplied(true);
+    setTimeout(() => setApplied(false), 2000);
+  };
+
+  const togglePerm = (list: string[], perm: string) =>
+    list.includes(perm) ? list.filter((p) => p !== perm) : [...list, perm];
+
+  return (
+    <div className="space-y-5">
+      {/* ── Service Account (synced from IdP, read-only) ── */}
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[13px] font-medium text-text-primary">
+            Service Account
+          </h3>
+          <span className="flex items-center gap-1.5 text-[10px] font-mono text-text-muted">
+            <RefreshCw size={10} />
+            Synced from {svcAccount.idpSource ?? "IdP"} · {new Date(svcAccount.lastSyncAt ?? svcAccount.lastActive).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3">
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1">Account Name</span>
+            <span className="text-[13px] text-text-primary font-mono">{svcAccount.name}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1">Identifier</span>
+            <span className="text-[12px] text-text-secondary font-mono">{svcAccount.email}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1">Status</span>
+            <span className="flex items-center gap-1.5">
+              <span className={cn("w-1.5 h-1.5 rounded-full", svcAccount.status === "active" ? "bg-emerald-400" : "bg-red-400")} />
+              <span className="text-[13px] text-text-primary capitalize">{svcAccount.status}</span>
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1">Auth Method</span>
+            <span className="text-[13px] text-text-primary font-mono">{svcAccount.authMethod ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1">Owner</span>
+            <span className="text-[13px] text-text-primary">{svcAccount.owner ?? "—"}</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1">Created</span>
+            <span className="text-[13px] text-text-secondary font-mono">
+              {new Date(svcAccount.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Authorization Policy (configurable, locked by default) ── */}
+      <div className={cn(
+        "bg-bg-secondary border rounded-xl p-5 transition-colors",
+        unlocked ? "border-amber-400/30" : "border-border-subtle"
+      )}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[13px] font-medium text-text-primary">
+            Authorization Policy
+          </h3>
+          <button
+            onClick={handleUnlock}
+            className={cn(
+              "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md transition-all",
+              unlocked
+                ? "text-amber-400 bg-amber-400/10 hover:bg-amber-400/15"
+                : "text-text-muted hover:text-text-secondary hover:bg-white/[0.05]"
+            )}
+          >
+            {unlocked ? <LockOpen size={12} /> : <Lock size={12} />}
+            {unlocked ? "Editing" : "Locked"}
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          {/* Base Permissions */}
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1.5">Base Permissions</span>
+            <p className="text-[10px] text-text-muted mb-2">Always available without elevation</p>
+            <div className="flex flex-wrap gap-1.5">
+              {unlocked
+                ? allBasePermissions.map((p) => {
+                    const active = draft.basePermissions.includes(p);
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setDraft((d) => ({ ...d, basePermissions: togglePerm(d.basePermissions, p) }))}
+                        className={cn(
+                          "text-[11px] font-mono px-2.5 py-1 rounded transition-all",
+                          active ? permColor(p) : "text-text-muted/50 bg-white/[0.03] border border-dashed border-white/10 hover:border-white/20"
+                        )}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })
+                : draft.basePermissions.map((p) => (
+                    <span key={p} className={cn("text-[11px] font-mono px-2.5 py-1 rounded", permColor(p))}>
+                      {p}
+                    </span>
+                  ))
+              }
+            </div>
+          </div>
+
+          {/* JIT Policy + Max Duration */}
+          <div className="grid grid-cols-2 gap-5">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1.5">JIT Elevation Policy</span>
+              {unlocked ? (
+                <div className="flex gap-1">
+                  {jitPolicyOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setDraft((d) => ({ ...d, jitPolicy: opt.value }))}
+                      className={cn(
+                        "text-[11px] font-medium px-2.5 py-1.5 rounded transition-all",
+                        draft.jitPolicy === opt.value
+                          ? opt.value === "auto-approve"
+                            ? "bg-emerald-400/10 text-emerald-400"
+                            : opt.value === "policy-based"
+                              ? "bg-sky-400/10 text-sky-400"
+                              : "bg-amber-400/10 text-amber-400"
+                          : "text-text-muted bg-white/[0.03] hover:bg-white/[0.06]"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span className={cn(
+                  "text-[11px] font-medium px-2.5 py-1 rounded inline-block",
+                  draft.jitPolicy === "auto-approve" ? "bg-emerald-400/10 text-emerald-400"
+                    : draft.jitPolicy === "policy-based" ? "bg-sky-400/10 text-sky-400"
+                    : "bg-amber-400/10 text-amber-400"
+                )}>
+                  {draft.jitPolicy}
+                </span>
+              )}
+            </div>
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1.5">Max Grant Duration</span>
+              {unlocked ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={draft.maxJitDuration}
+                    onChange={(e) => setDraft((d) => ({ ...d, maxJitDuration: parseInt(e.target.value) || 0 }))}
+                    className="w-20 bg-bg-primary border border-border-subtle rounded-lg px-3 py-1.5 text-[13px] font-mono text-text-primary focus:outline-none focus:border-amber-400/30 transition-colors"
+                  />
+                  <span className="text-[11px] text-text-muted">minutes</span>
+                </div>
+              ) : (
+                <span className="text-[13px] font-mono text-text-primary">{draft.maxJitDuration}m</span>
+              )}
+            </div>
+          </div>
+
+          {/* Requestable Permissions */}
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-text-muted block mb-1.5">Requestable Permissions</span>
+            <p className="text-[10px] text-text-muted mb-2">Elevated permissions this agent may request via JIT</p>
+            <div className="flex flex-wrap gap-1.5">
+              {unlocked
+                ? allElevatedPermissions.map((p) => {
+                    const active = draft.requestablePermissions.includes(p);
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setDraft((d) => ({ ...d, requestablePermissions: togglePerm(d.requestablePermissions, p) }))}
+                        className={cn(
+                          "text-[11px] font-mono px-2.5 py-1 rounded transition-all",
+                          active ? permColor(p) : "text-text-muted/50 bg-white/[0.03] border border-dashed border-white/10 hover:border-white/20"
+                        )}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })
+                : draft.requestablePermissions.length > 0
+                  ? draft.requestablePermissions.map((p) => (
+                      <span key={p} className={cn("text-[11px] font-mono px-2.5 py-1 rounded", permColor(p))}>
+                        {p}
+                      </span>
+                    ))
+                  : <span className="text-[11px] text-text-muted">None configured</span>
+              }
+            </div>
+          </div>
+        </div>
+
+        {/* Apply / Cancel */}
+        <AnimatePresence>
+          {unlocked && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-border-subtle">
+                <button
+                  onClick={handleUnlock}
+                  className="text-[12px] text-text-muted hover:text-text-secondary transition-colors px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleApply}
+                  className="flex items-center gap-2 bg-white/[0.08] hover:bg-white/[0.12] text-text-primary border border-white/[0.15] rounded-lg px-4 py-1.5 text-[12px] font-medium transition-all"
+                >
+                  Apply Policy
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Applied confirmation */}
+        <AnimatePresence>
+          {applied && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center justify-end gap-1.5 pt-3"
+            >
+              <Check size={12} className="text-emerald-400" />
+              <span className="text-[11px] font-medium text-emerald-400">Policy applied</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Activity ── */}
+
+      {/* Active Grants */}
+      {activeGrants.length > 0 && (
+        <div>
+          <h3 className="text-[13px] font-medium text-text-primary mb-3">
+            Active Grants
+          </h3>
+          <div className="space-y-2">
+            {activeGrants.map((g) => (
+              <div
+                key={g.id}
+                className={cn(
+                  "bg-bg-secondary border border-border-subtle rounded-xl px-5 py-3.5 border-l-[3px]",
+                  g.status === "active"
+                    ? "border-l-emerald-400"
+                    : "border-l-amber-400"
+                )}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    {g.permissions.map((p) => (
+                      <span
+                        key={p}
+                        className={cn(
+                          "text-[10px] font-mono px-2 py-0.5 rounded",
+                          permColor(p)
+                        )}
+                      >
+                        {p}
+                      </span>
+                    ))}
+                    <span
+                      className={cn(
+                        "text-[10px] font-medium px-2 py-0.5 rounded",
+                        jitStatusColors[g.status]
+                      )}
+                    >
+                      {g.status.replace("-", " ")}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-text-muted">
+                    {g.approvalMethod === "auto-policy"
+                      ? "Auto Policy"
+                      : g.approvalMethod === "human"
+                        ? g.approvedBy
+                        : "Policy Engine"}
+                  </span>
+                </div>
+                <p className="text-[12px] text-text-secondary">
+                  {g.reason}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Grant History */}
+      {pastGrants.length > 0 && (
+        <div>
+          <h3 className="text-[13px] font-medium text-text-primary mb-3">
+            Grant History
+          </h3>
+          <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
+            {pastGrants.map((g, i) => (
+              <div
+                key={g.id}
+                className={cn(
+                  "flex items-center gap-4 px-5 py-3",
+                  i < pastGrants.length - 1 &&
+                    "border-b border-border-subtle"
+                )}
+              >
+                <span className="text-[11px] font-mono text-text-muted w-28 shrink-0">
+                  {new Date(
+                    g.revokedAt ?? g.expiresAt ?? g.requestedAt
+                  ).toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <span
+                  className={cn(
+                    "text-[10px] font-medium px-2 py-0.5 rounded w-16 text-center shrink-0",
+                    jitStatusColors[g.status]
+                  )}
+                >
+                  {g.status}
+                </span>
+                <div className="flex items-center gap-1 flex-1 min-w-0">
+                  {g.permissions.map((p) => (
+                    <span
+                      key={p}
+                      className={cn(
+                        "text-[10px] font-mono px-1.5 py-0.5 rounded",
+                        permColor(p)
+                      )}
+                    >
+                      {p}
+                    </span>
+                  ))}
+                </div>
+                {g.revokeReason && (
+                  <span
+                    className="text-[10px] text-red-400 max-w-[240px] truncate shrink-0"
+                    title={g.revokeReason}
+                  >
+                    {g.revokeReason}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

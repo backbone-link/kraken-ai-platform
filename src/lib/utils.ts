@@ -34,7 +34,7 @@ export const formatTokens = (n: number): string => {
 };
 
 export const timeAgo = (date: string): string => {
-  const now = new Date("2026-02-13T14:30:00Z");
+  const now = new Date("2026-02-14T14:30:00Z");
   const then = new Date(date);
   const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
 
