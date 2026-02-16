@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Plus,
   Shield,
@@ -502,9 +503,9 @@ const JitSessionCard = ({ grant: g }: { grant: JitGrant }) => {
         <div>
           <div className="flex items-center gap-2">
             <Bot size={14} className="text-accent" />
-            <span className="text-[13px] font-medium text-text-primary">
+            <Link href={`/agents/${g.agentId}`} className="text-[13px] font-medium text-text-primary hover:text-accent transition-colors">
               {g.agentName}
-            </span>
+            </Link>
             <span className="text-[11px] text-text-muted font-mono">
               {g.accountName}
             </span>
@@ -636,9 +637,9 @@ const JitHistoryRow = ({
         {g.status}
       </span>
 
-      <span className="text-[12px] text-text-primary shrink-0">
+      <Link href={`/agents/${g.agentId}`} className="text-[12px] text-text-primary shrink-0 hover:text-accent transition-colors">
         {g.agentName}
-      </span>
+      </Link>
 
       <div className="flex items-center gap-1 flex-1 min-w-0">
         {g.permissions.map((p) => (
@@ -753,7 +754,13 @@ const JitTab = () => {
                     {a.name}
                   </td>
                   <td className="text-[12px] text-text-secondary px-5 py-3">
-                    {a.boundAgentName}
+                    {a.boundAgentId ? (
+                      <Link href={`/agents/${a.boundAgentId}`} className="hover:text-accent transition-colors">
+                        {a.boundAgentName}
+                      </Link>
+                    ) : (
+                      a.boundAgentName
+                    )}
                   </td>
                   <td className="px-5 py-3">
                     <span

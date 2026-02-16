@@ -12,10 +12,8 @@ import {
   Copy,
   User,
   Bot,
-  Clock,
   ShieldCheck,
   CheckCircle,
-  Timer,
   Lock,
   RefreshCw,
   Globe,
@@ -30,8 +28,6 @@ import {
   rolePermissions,
   type Account,
   type AccountRole,
-  type JitGrant,
-  type JitStatus,
 } from "@/data/mock";
 import { timeAgo, primaryBtnClass } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -62,22 +58,6 @@ const roleBadgeColors: Record<AccountRole, string> = {
   "read-only": "bg-bg-tertiary text-text-muted",
 };
 
-const jitStatusColors: Record<JitStatus, string> = {
-  active: "bg-emerald-400/15 text-emerald-400",
-  "pending-approval": "bg-amber-400/15 text-amber-400",
-  expired: "bg-bg-tertiary text-text-muted",
-  revoked: "bg-red-400/15 text-red-400",
-  denied: "bg-red-400/15 text-red-400",
-};
-
-const jitStatusBorderColors: Record<JitStatus, string> = {
-  active: "border-l-emerald-400",
-  "pending-approval": "border-l-amber-400",
-  expired: "border-l-zinc-500",
-  revoked: "border-l-red-400",
-  denied: "border-l-red-400",
-};
-
 const roleDescriptions: Record<AccountRole, string> = {
   "org-admin": "Full platform access. Can manage all accounts, agents, integrations, and governance settings.",
   "security-admin": "Manages security policies, audit logs, JIT approvals, and agent kill switches.",
@@ -103,18 +83,6 @@ const permissionCategories: Record<string, string> = {
 const getPermColor = (perm: string) => {
   const cat = perm.split(":")[0];
   return permissionCategories[cat] ?? "text-text-muted bg-bg-tertiary";
-};
-
-const minutesRemaining = (expiresAt: string) => {
-  const diff = new Date(expiresAt).getTime() - Date.now();
-  return Math.max(0, Math.round(diff / 60_000));
-};
-
-const elapsedFraction = (grantedAt: string, expiresAt: string) => {
-  const start = new Date(grantedAt).getTime();
-  const end = new Date(expiresAt).getTime();
-  const now = Date.now();
-  return Math.min(1, Math.max(0, (now - start) / (end - start)));
 };
 
 // ─── General Tab ───
@@ -400,14 +368,13 @@ const SecurityTab = ({ onNavigate }: { onNavigate: (tab: TabKey) => void }) => {
 
 // ─── Accounts Tab ───
 
-type AccountSubTab = "directory" | "jit" | "roles";
+type AccountSubTab = "directory" | "roles";
 
 const AccountsTab = () => {
   const [sub, setSub] = useState<AccountSubTab>("directory");
 
   const subTabs: { key: AccountSubTab; label: string }[] = [
     { key: "directory", label: "Directory" },
-    { key: "jit", label: "JIT Authorization" },
     { key: "roles", label: "Roles & Permissions" },
   ];
 
@@ -431,7 +398,6 @@ const AccountsTab = () => {
       </div>
 
       {sub === "directory" && <DirectorySubTab />}
-      {sub === "jit" && <JitSubTab />}
       {sub === "roles" && <RolesSubTab />}
     </div>
   );
@@ -646,302 +612,6 @@ const AccountRow = ({ account: a }: { account: Account }) => {
         )}
       </td>
     </tr>
-  );
-};
-
-// ── JIT Authorization Sub-tab ──
-
-const JitSubTab = () => {
-  const activeGrants = jitGrants.filter(
-    (g) => g.status === "active" || g.status === "pending-approval"
-  );
-  const historyGrants = jitGrants.filter(
-    (g) =>
-      g.status === "expired" ||
-      g.status === "revoked" ||
-      g.status === "denied"
-  );
-  const serviceAccounts = accounts.filter((a) => a.type === "service");
-
-  return (
-    <div className="space-y-6">
-      {/* Active & Pending */}
-      <div>
-        <h3 className="text-[14px] font-medium text-text-primary mb-3 flex items-center gap-2">
-          <Clock size={15} className="text-emerald-400" />
-          Active & Pending Sessions
-        </h3>
-        <div className="space-y-3">
-          {activeGrants.map((g) => (
-            <JitSessionCard key={g.id} grant={g} />
-          ))}
-        </div>
-      </div>
-
-      {/* History */}
-      <div>
-        <h3 className="text-[14px] font-medium text-text-primary mb-3 flex items-center gap-2">
-          <Timer size={15} className="text-text-muted" />
-          Grant History
-        </h3>
-        <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
-          {historyGrants.map((g, i) => (
-            <JitHistoryRow
-              key={g.id}
-              grant={g}
-              last={i === historyGrants.length - 1}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Per-Agent Authorization Rules */}
-      <div>
-        <h3 className="text-[14px] font-medium text-text-primary mb-3 flex items-center gap-2">
-          <ShieldCheck size={15} className="text-text-muted" />
-          Authorization Rules
-        </h3>
-
-        <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-border-subtle">
-                {["Service Account", "Bound Agent", "Approval Method", "Max Grant Duration"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="text-[11px] font-medium text-text-muted uppercase tracking-wider px-5 py-3"
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {serviceAccounts.map((a, i) => (
-                <tr key={a.id} className={cn(i < serviceAccounts.length - 1 && "border-b border-border-subtle")}>
-                  <td className="text-[12px] text-text-primary font-mono px-5 py-3">
-                    {a.name}
-                  </td>
-                  <td className="text-[12px] text-text-secondary px-5 py-3">
-                    {a.boundAgentName}
-                  </td>
-                  <td className="px-5 py-3">
-                    <span
-                      className={cn(
-                        "text-[10px] font-medium px-2 py-0.5 rounded",
-                        a.jitPolicy === "auto-approve"
-                          ? "bg-emerald-400/10 text-emerald-400"
-                          : a.jitPolicy === "policy-based"
-                            ? "bg-sky-400/10 text-sky-400"
-                            : "bg-amber-400/10 text-amber-400"
-                      )}
-                    >
-                      {a.jitPolicy}
-                    </span>
-                  </td>
-                  <td className="text-[12px] text-text-muted font-mono px-5 py-3">
-                    {a.maxJitDuration}m
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const JitSessionCard = ({ grant: g }: { grant: JitGrant }) => {
-  const isPending = g.status === "pending-approval";
-  const remaining =
-    g.expiresAt ? minutesRemaining(g.expiresAt) : 0;
-  const elapsed =
-    g.grantedAt && g.expiresAt
-      ? elapsedFraction(g.grantedAt, g.expiresAt)
-      : 0;
-  const barColor = elapsed > 0.75 ? "bg-amber-400" : "bg-emerald-400";
-
-  return (
-    <div
-      className={cn(
-        "bg-bg-secondary border border-border-subtle rounded-xl p-4 border-l-[3px]",
-        jitStatusBorderColors[g.status]
-      )}
-    >
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <Bot size={14} className="text-accent" />
-            <span className="text-[13px] font-medium text-text-primary">
-              {g.agentName}
-            </span>
-            <span className="text-[11px] text-text-muted font-mono">
-              {g.accountName}
-            </span>
-          </div>
-          <p className="text-[12px] text-text-secondary mt-1.5 max-w-xl">
-            {g.reason}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "text-[10px] font-medium px-2 py-0.5 rounded",
-              jitStatusColors[g.status]
-            )}
-          >
-            {g.status.replace("-", " ")}
-          </span>
-        </div>
-      </div>
-
-      {/* Permissions */}
-      <div className="flex items-center gap-1.5 mb-3">
-        {g.permissions.map((p) => (
-          <span
-            key={p}
-            className={cn(
-              "text-[10px] font-mono px-2 py-0.5 rounded",
-              getPermColor(p)
-            )}
-          >
-            {p}
-          </span>
-        ))}
-      </div>
-
-      {/* Footer: approval method + countdown + actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] text-text-muted flex items-center gap-1">
-            {g.approvalMethod === "auto-policy" ? (
-              <>
-                <CheckCircle size={11} className="text-emerald-400" />
-                Auto Policy
-              </>
-            ) : g.approvalMethod === "human" ? (
-              <>
-                <User size={11} />
-                {g.approvedBy}
-              </>
-            ) : (
-              <>
-                <Shield size={11} />
-                Policy Engine
-              </>
-            )}
-          </span>
-
-          {g.taskContext && (
-            <span className="text-[10px] text-text-muted bg-bg-tertiary px-2 py-0.5 rounded font-mono">
-              {g.taskContext}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          {!isPending && g.expiresAt && (
-            <div className="flex items-center gap-2">
-              <div className="w-24 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full transition-all", barColor)}
-                  style={{ width: `${(1 - elapsed) * 100}%` }}
-                />
-              </div>
-              <span className="text-[11px] font-mono text-text-muted">
-                {remaining}m left
-              </span>
-            </div>
-          )}
-
-          {isPending ? (
-            <div className="flex gap-2">
-              <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-emerald-400/15 text-emerald-400 hover:bg-emerald-400/25 transition-colors">
-                Approve
-              </button>
-              <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-red-400/15 text-red-400 hover:bg-red-400/25 transition-colors">
-                Deny
-              </button>
-            </div>
-          ) : (
-            <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-red-400/15 text-red-400 hover:bg-red-400/25 transition-colors">
-              Revoke Now
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const JitHistoryRow = ({
-  grant: g,
-  last,
-}: {
-  grant: JitGrant;
-  last: boolean;
-}) => {
-  const ts = g.revokedAt ?? g.expiresAt ?? g.requestedAt;
-
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-4 px-5 py-3",
-        !last && "border-b border-border-subtle"
-      )}
-    >
-      <span className="text-[11px] font-mono text-text-muted w-32 shrink-0">
-        {new Date(ts).toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </span>
-
-      <span
-        className={cn(
-          "text-[10px] font-medium px-2 py-0.5 rounded w-16 text-center shrink-0",
-          jitStatusColors[g.status]
-        )}
-      >
-        {g.status}
-      </span>
-
-      <span className="text-[12px] text-text-primary shrink-0">
-        {g.agentName}
-      </span>
-
-      <div className="flex items-center gap-1 flex-1 min-w-0">
-        {g.permissions.map((p) => (
-          <span
-            key={p}
-            className={cn(
-              "text-[10px] font-mono px-1.5 py-0.5 rounded",
-              getPermColor(p)
-            )}
-          >
-            {p}
-          </span>
-        ))}
-      </div>
-
-      <span className="text-[11px] text-text-muted shrink-0">
-        {g.approvedBy ?? g.approvalMethod}
-      </span>
-
-      {g.revokeReason && (
-        <span
-          className="text-[10px] text-red-400 max-w-[200px] truncate shrink-0"
-          title={g.revokeReason}
-        >
-          {g.revokeReason}
-        </span>
-      )}
-    </div>
   );
 };
 
