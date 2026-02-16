@@ -33,10 +33,10 @@ type NavItem = {
 };
 
 const mainNav: NavItem[] = [
-  { href: "/observability", label: "Observability", icon: Activity },
   { href: "/agents", label: "Agents", icon: Cpu },
   { href: "/pipelines", label: "Pipelines", icon: Workflow },
   { href: "/models", label: "Models", icon: Sparkles },
+  { href: "/observability", label: "Observability", icon: Activity },
   { href: "/usage", label: "Usage", icon: BarChart3 },
 ];
 
