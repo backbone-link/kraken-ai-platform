@@ -1234,11 +1234,11 @@ const AgentDetailPage = () => {
             />
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 border border-red-500/30 text-red-400 rounded-lg px-3.5 py-1.5 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/50 transition-colors">
+          <button className="flex items-center gap-2 border border-red-500/30 text-red-400 rounded-md px-3 py-1.5 text-[11px] font-medium hover:bg-red-500/10 hover:border-red-500/50 transition-colors">
             <StopCircle size={14} />
             Kill
           </button>
-          <button className="flex items-center gap-2 border border-border-default text-text-secondary rounded-lg px-3.5 py-1.5 text-[13px] font-medium hover:text-text-primary hover:border-border-default transition-colors">
+          <button className="flex items-center gap-2 border border-border-default text-text-secondary rounded-md px-3 py-1.5 text-[11px] font-medium hover:text-text-primary hover:border-border-default transition-colors">
             <FlaskConical size={14} />
             Dry Run
           </button>
@@ -1246,7 +1246,7 @@ const AgentDetailPage = () => {
             <Play size={14} />
             Run Now
           </button>
-          <button className="border border-border-default text-text-muted rounded-lg p-1.5 hover:text-text-secondary transition-colors">
+          <button className="border border-border-default text-text-muted rounded-md p-1.5 hover:text-text-secondary transition-colors">
             <MoreHorizontal size={16} />
           </button>
         </div>

@@ -116,14 +116,6 @@ const jitStatusColors: Record<JitStatus, string> = {
   denied: "bg-red-400/15 text-red-400",
 };
 
-const jitStatusBorderColors: Record<JitStatus, string> = {
-  active: "border-l-emerald-400",
-  "pending-approval": "border-l-amber-400",
-  expired: "border-l-zinc-500",
-  revoked: "border-l-red-400",
-  denied: "border-l-red-400",
-};
-
 const permissionCategories: Record<string, string> = {
   agents: "text-purple-400 bg-purple-400/10",
   data: "text-sky-400 bg-sky-400/10",
@@ -185,8 +177,8 @@ const FilterChip = ({
     className={cn(
       "px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors",
       active
-        ? "bg-accent text-white"
-        : "bg-white/[0.07] text-text-secondary hover:bg-white/[0.12]"
+        ? "bg-accent/15 text-accent"
+        : "bg-white/[0.05] text-text-muted hover:bg-white/[0.08] hover:text-text-secondary"
     )}
   >
     {label}
@@ -504,10 +496,7 @@ const JitSessionCard = ({ grant: g }: { grant: JitGrant }) => {
 
   return (
     <div
-      className={cn(
-        "bg-bg-secondary border border-border-subtle rounded-xl p-4 border-l-[3px]",
-        jitStatusBorderColors[g.status]
-      )}
+      className="bg-bg-secondary border border-border-subtle rounded-xl p-4"
     >
       <div className="flex items-start justify-between mb-2">
         <div>
@@ -519,21 +508,33 @@ const JitSessionCard = ({ grant: g }: { grant: JitGrant }) => {
             <span className="text-[11px] text-text-muted font-mono">
               {g.accountName}
             </span>
+            <span
+              className={cn(
+                "text-[10px] font-medium px-2 py-0.5 rounded",
+                jitStatusColors[g.status]
+              )}
+            >
+              {g.status.replace("-", " ")}
+            </span>
           </div>
           <p className="text-[12px] text-text-secondary mt-1.5 max-w-xl">
             {g.reason}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "text-[10px] font-medium px-2 py-0.5 rounded",
-              jitStatusColors[g.status]
-            )}
-          >
-            {g.status.replace("-", " ")}
-          </span>
-        </div>
+        {isPending ? (
+          <div className="flex gap-2 shrink-0">
+            <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-emerald-400/15 text-emerald-400 hover:bg-emerald-400/25 transition-colors">
+              Approve
+            </button>
+            <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-red-400/15 text-red-400 hover:bg-red-400/25 transition-colors">
+              Deny
+            </button>
+          </div>
+        ) : (
+          <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-red-400/15 text-red-400 hover:bg-red-400/25 shrink-0 transition-colors">
+            Revoke Now
+          </button>
+        )}
       </div>
 
       {/* Permissions */}
@@ -580,39 +581,22 @@ const JitSessionCard = ({ grant: g }: { grant: JitGrant }) => {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          {!isPending && g.expiresAt && (
-            <div className="flex items-center gap-2">
-              <div className="w-24 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    barColor
-                  )}
-                  style={{ width: `${(1 - elapsed) * 100}%` }}
-                />
-              </div>
-              <span className="text-[11px] font-mono text-text-muted">
-                {remaining}m left
-              </span>
+        {!isPending && g.expiresAt && (
+          <div className="flex items-center gap-2">
+            <div className="w-24 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  barColor
+                )}
+                style={{ width: `${(1 - elapsed) * 100}%` }}
+              />
             </div>
-          )}
-
-          {isPending ? (
-            <div className="flex gap-2">
-              <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-emerald-400/15 text-emerald-400 hover:bg-emerald-400/25 transition-colors">
-                Approve
-              </button>
-              <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-red-400/15 text-red-400 hover:bg-red-400/25 transition-colors">
-                Deny
-              </button>
-            </div>
-          ) : (
-            <button className="text-[11px] font-medium px-3 py-1 rounded-lg bg-red-400/15 text-red-400 hover:bg-red-400/25 transition-colors">
-              Revoke Now
-            </button>
-          )}
-        </div>
+            <span className="text-[11px] font-mono text-text-muted">
+              {remaining}m left
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -703,7 +687,7 @@ const JitTab = () => {
       {/* Active & Pending */}
       <div>
         <h3 className="text-[14px] font-medium text-text-primary mb-3 flex items-center gap-2">
-          <Clock size={15} className="text-emerald-400" />
+          <Clock size={15} className="text-text-muted" />
           Active & Pending Sessions
         </h3>
         <div className="space-y-3">

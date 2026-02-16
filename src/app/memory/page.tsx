@@ -66,8 +66,8 @@ const FilterChip = ({
     className={cn(
       "px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors",
       active
-        ? "bg-accent text-white"
-        : "bg-white/[0.07] text-text-secondary hover:bg-white/[0.12]"
+        ? "bg-accent/15 text-accent"
+        : "bg-white/[0.05] text-text-muted hover:bg-white/[0.08] hover:text-text-secondary"
     )}
   >
     {label}
