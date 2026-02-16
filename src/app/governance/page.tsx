@@ -492,7 +492,7 @@ const JitSessionCard = ({ grant: g }: { grant: JitGrant }) => {
     g.grantedAt && g.expiresAt
       ? elapsedFraction(g.grantedAt, g.expiresAt)
       : 0;
-  const barColor = elapsed > 0.75 ? "bg-amber-400" : "bg-emerald-400";
+  const barColor = elapsed > 0.75 ? "bg-amber-400/70" : "bg-emerald-400/40";
 
   return (
     <div
