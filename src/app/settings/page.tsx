@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Plus,
   Key,
@@ -1168,7 +1169,9 @@ const tabContent: Record<Exclude<TabKey, "security">, () => React.ReactElement> 
 // ─── Page ───
 
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState<TabKey>("general");
+  const searchParams = useSearchParams();
+  const initialTab = tabs.some((t) => t.key === searchParams.get("tab")) ? (searchParams.get("tab") as TabKey) : "general";
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
 
   const ActiveContent = activeTab !== "security" ? tabContent[activeTab] : null;
 
@@ -1204,4 +1207,10 @@ const SettingsPage = () => {
   );
 };
 
-export default SettingsPage;
+const SettingsPageWrapper = () => (
+  <Suspense>
+    <SettingsPage />
+  </Suspense>
+);
+
+export default SettingsPageWrapper;

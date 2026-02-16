@@ -1219,6 +1219,8 @@ const incidentSourceLabels: Record<string, string> = {
 
 // --- Incident Card ---
 
+const isResolved = (status: IncidentStatus) => status === "resolved" || status === "closed";
+
 const IncidentCard = ({
   incident,
   expanded,
@@ -1230,137 +1232,72 @@ const IncidentCard = ({
 }) => {
   const sev = severityConfig[incident.severity];
   const status = incidentStatusConfig[incident.status];
-  const latestEvent = incident.timeline[incident.timeline.length - 1];
 
   return (
-    <div className={cn("bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden border-l-[3px]", sev.border)}>
+    <div className={cn("border border-border-subtle rounded-lg overflow-hidden border-l-[3px]", isResolved(incident.status) ? "border-l-zinc-600 opacity-60" : sev.border)}>
       <button
         onClick={onToggle}
-        className="w-full text-left p-5 cursor-pointer hover:bg-white/[0.03] transition-colors"
+        className="w-full text-left px-4 py-3 cursor-pointer hover:bg-white/[0.03] transition-colors"
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded bg-white/[0.08] text-text-secondary">
-                {incident.code}
-              </span>
-              <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded", sev.badge)}>
-                {sev.label}
-              </span>
-              <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded", status.badge)}>
-                {status.label}
-              </span>
-              <span className="text-[14px] font-medium text-text-primary truncate">
-                {incident.title}
-              </span>
-            </div>
-
-            <p className="text-[12px] text-text-secondary line-clamp-2 mb-3">
-              {incident.description}
-            </p>
-
-            <div className="flex items-center gap-3 flex-wrap text-[11px]">
-              <span className="flex items-center gap-1 text-text-muted">
-                <User size={10} />
-                {incident.assignee.name}
-              </span>
-              <span className="text-text-muted">
-                Source: <span className="text-text-secondary">{incident.sourceAgent.name}</span>
-              </span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.06] text-text-muted">
-                {incidentSourceLabels[incident.sourceType]}
-              </span>
-              <span className="text-text-muted ml-auto">
-                {timeAgo(incident.createdAt)}
-              </span>
-            </div>
-
-            {latestEvent && (
-              <div className="mt-2.5 flex items-center gap-2 text-[10px] text-text-muted">
-                <Clock size={10} className="shrink-0" />
-                <span className="font-mono">{latestEvent.actor}</span>
-                <span className="text-text-secondary">{latestEvent.action}</span>
-                <span className="truncate">{latestEvent.detail}</span>
-              </div>
-            )}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] font-mono text-text-muted">{incident.code}</span>
+            <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", sev.badge)}>{sev.label}</span>
+            <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", status.badge)}>{status.label}</span>
           </div>
-
-          <div className="shrink-0 mt-1">
-            {expanded ? (
-              <ChevronDown size={16} className="text-text-muted" />
-            ) : (
-              <ChevronRight size={16} className="text-text-muted" />
-            )}
-          </div>
+          <span className="text-[13px] font-medium text-text-primary truncate">{incident.title}</span>
+          <span className="text-[11px] text-text-muted ml-auto shrink-0">{timeAgo(incident.createdAt)}</span>
+          {expanded ? <ChevronDown size={14} className="text-text-muted shrink-0" /> : <ChevronRight size={14} className="text-text-muted shrink-0" />}
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-border-subtle px-5 pb-5">
-          <div className="grid grid-cols-2 gap-4 pt-4 mb-5">
-            {incident.impactAssessment && (
-              <div className="bg-bg-primary border border-border-subtle rounded-lg px-4 py-3">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5">Impact Assessment</p>
-                <p className="text-[12px] text-text-secondary leading-relaxed">{incident.impactAssessment}</p>
-              </div>
-            )}
-            {incident.rootCause && (
-              <div className="bg-bg-primary border border-border-subtle rounded-lg px-4 py-3">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5">Root Cause</p>
-                <p className="text-[12px] text-text-secondary leading-relaxed">{incident.rootCause}</p>
-              </div>
-            )}
+        <div className="border-t border-border-subtle px-4 py-3 space-y-3">
+          <p className="text-[12px] text-text-secondary leading-relaxed">{incident.description}</p>
+
+          <div className="flex items-center gap-4 text-[11px] text-text-muted">
+            <Link href="/settings?tab=accounts" className="flex items-center gap-1 hover:text-text-primary transition-colors"><User size={10} /> <span className="underline decoration-dotted underline-offset-2">{incident.assignee.name}</span></Link>
+            <span>Agent: <Link href={`/agents/${incident.sourceAgent.id}`} className="text-text-secondary underline decoration-dotted underline-offset-2 hover:text-text-primary transition-colors">{incident.sourceAgent.name}</Link></span>
+            {incident.relatedRunId && <span>Run: <span className="font-mono text-text-secondary">{incident.relatedRunId}</span></span>}
           </div>
 
+          {(incident.rootCause ?? incident.impactAssessment) && (
+            <div className="space-y-2">
+              {incident.rootCause && (
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">Root Cause</p>
+                  <p className="text-[12px] text-text-secondary leading-relaxed">{incident.rootCause}</p>
+                </div>
+              )}
+              {incident.impactAssessment && (
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">Impact</p>
+                  <p className="text-[12px] text-text-secondary leading-relaxed">{incident.impactAssessment}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {incident.postmortem && (
-            <div className="bg-bg-primary border border-border-subtle rounded-lg px-4 py-3 mb-5">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5">Postmortem</p>
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1">Postmortem</p>
               <p className="text-[12px] text-text-secondary leading-relaxed">{incident.postmortem}</p>
             </div>
           )}
 
-          <div className="mb-4">
-            <p className="text-[12px] font-medium text-text-primary mb-3 flex items-center gap-1.5">
-              <Clock size={13} className="text-text-muted" />
-              Timeline ({incident.timeline.length} events)
-            </p>
-            <div className="bg-bg-primary border border-border-subtle rounded-lg overflow-hidden">
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-2">Timeline</p>
+            <div className="space-y-0">
               {incident.timeline.map((event, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex items-start gap-3 px-4 py-3",
-                    i < incident.timeline.length - 1 && "border-b border-border-subtle"
-                  )}
-                >
-                  <div className="w-2 h-2 rounded-full bg-accent/50 mt-1.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[11px] font-medium text-text-primary">{event.action}</span>
-                      <span className="text-[10px] font-mono text-text-muted ml-auto shrink-0">
-                        {new Date(event.timestamp).toLocaleString("en-US", {
-                          month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
-                        })}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-text-muted mb-0.5">{event.actor}</p>
-                    <p className="text-[11px] text-text-secondary">{event.detail}</p>
-                  </div>
+                <div key={i} className="flex items-baseline gap-2 py-1">
+                  <span className="text-[10px] font-mono text-text-muted shrink-0 w-[110px]">
+                    {new Date(event.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+                  </span>
+                  <span className="text-[11px] font-medium text-text-primary shrink-0">{event.action}</span>
+                  <span className="text-[11px] text-text-muted truncate">{event.detail}</span>
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px] text-text-muted">
-            {incident.acknowledgedAt && (
-              <span>Acknowledged: <span className="font-mono text-text-secondary">{timeAgo(incident.acknowledgedAt)}</span></span>
-            )}
-            {incident.resolvedAt && (
-              <span>Resolved: <span className="font-mono text-text-secondary">{timeAgo(incident.resolvedAt)}</span></span>
-            )}
-            {incident.relatedRunId && (
-              <span>Related Run: <span className="font-mono text-text-secondary">{incident.relatedRunId}</span></span>
-            )}
           </div>
         </div>
       )}
@@ -1376,74 +1313,65 @@ const IncidentsTab = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const filtered = useMemo(() => {
-    let items = incidents;
+    let items = [...incidents];
     if (severityFilter !== "all") {
       items = items.filter((i) => i.severity === severityFilter);
     }
     if (statusFilter !== "all") {
       items = items.filter((i) => i.status === statusFilter);
     }
+    items.sort((a, b) => {
+      const aResolved = isResolved(a.status) ? 1 : 0;
+      const bResolved = isResolved(b.status) ? 1 : 0;
+      if (aResolved !== bResolved) return aResolved - bResolved;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
     return items;
   }, [severityFilter, statusFilter]);
 
-  const openCount = incidents.filter((i) => i.status === "open" || i.status === "investigating" || i.status === "acknowledged").length;
-  const criticalOpenCount = incidents.filter((i) => (i.status === "open" || i.status === "investigating" || i.status === "acknowledged") && i.severity === "critical").length;
-  const resolvedThisMonth = incidents.filter((i) => i.status === "resolved" || i.status === "closed").length;
+  const openCount = incidents.filter((i) => !isResolved(i.status)).length;
+  const criticalOpenCount = incidents.filter((i) => !isResolved(i.status) && i.severity === "critical").length;
+  const resolvedCount = incidents.filter((i) => isResolved(i.status)).length;
 
-  const resolvedIncidents = incidents.filter((i) => i.resolvedAt && i.createdAt);
+  const resolvedIncidents = incidents.filter((i) => i.resolvedAt);
   const mttr = resolvedIncidents.length > 0
     ? resolvedIncidents.reduce((sum, i) => sum + (new Date(i.resolvedAt!).getTime() - new Date(i.createdAt).getTime()), 0) / resolvedIncidents.length
     : 0;
 
   return (
     <div>
-      <div className="grid grid-cols-4 gap-3 mb-5">
-        <div className="bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
-          <span className="text-[22px] font-semibold text-text-primary">{openCount}</span>
-          <p className="text-[11px] text-text-muted mt-0.5">Total Open</p>
-        </div>
-        <div className="bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
-          <span className={cn("text-[22px] font-semibold", criticalOpenCount > 0 ? "text-red-400" : "text-text-primary")}>{criticalOpenCount}</span>
-          <p className="text-[11px] text-text-muted mt-0.5">Critical Open</p>
-        </div>
-        <div className="bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
-          <span className="text-[22px] font-semibold text-text-primary">{formatDuration(mttr)}</span>
-          <p className="text-[11px] text-text-muted mt-0.5">MTTR (Mean Time to Resolve)</p>
-        </div>
-        <div className="bg-bg-secondary border border-border-subtle rounded-xl px-4 py-3">
-          <span className="text-[22px] font-semibold text-text-primary">{resolvedThisMonth}</span>
-          <p className="text-[11px] text-text-muted mt-0.5">Resolved This Month</p>
+      <div className="flex items-center gap-5 mb-4 text-[12px]">
+        <span className="text-text-muted">{openCount} open{criticalOpenCount > 0 && <span className="text-red-400 ml-1">({criticalOpenCount} critical)</span>}</span>
+        <span className="text-text-muted">{resolvedCount} resolved</span>
+        {resolvedIncidents.length > 0 && <span className="text-text-muted">MTTR {formatDuration(mttr)}</span>}
+        <div className="flex items-center gap-2 ml-auto">
+          <select
+            value={severityFilter}
+            onChange={(e) => setSeverityFilter(e.target.value)}
+            className="bg-bg-tertiary border border-border-subtle rounded-md px-2 py-1 text-[11px] font-mono text-text-secondary focus:outline-none focus:border-accent/40"
+          >
+            <option value="all">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-bg-tertiary border border-border-subtle rounded-md px-2 py-1 text-[11px] font-mono text-text-secondary focus:outline-none focus:border-accent/40"
+          >
+            <option value="all">All Statuses</option>
+            <option value="open">Open</option>
+            <option value="investigating">Investigating</option>
+            <option value="acknowledged">Acknowledged</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+          </select>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
-        <select
-          value={severityFilter}
-          onChange={(e) => setSeverityFilter(e.target.value)}
-          className="bg-bg-tertiary border border-border-subtle rounded-md px-2.5 py-1.5 text-[11px] font-mono text-text-secondary focus:outline-none focus:border-accent/40"
-        >
-          <option value="all">All Severities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-bg-tertiary border border-border-subtle rounded-md px-2.5 py-1.5 text-[11px] font-mono text-text-secondary focus:outline-none focus:border-accent/40"
-        >
-          <option value="all">All Statuses</option>
-          <option value="open">Open</option>
-          <option value="investigating">Investigating</option>
-          <option value="acknowledged">Acknowledged</option>
-          <option value="resolved">Resolved</option>
-          <option value="closed">Closed</option>
-        </select>
-        <span className="text-[10px] font-mono text-text-muted ml-auto">{filtered.length} incident{filtered.length !== 1 ? "s" : ""}</span>
-      </div>
-
-      <div className="space-y-3">
+      <div className="space-y-2">
         {filtered.map((incident) => (
           <IncidentCard
             key={incident.id}
@@ -1455,7 +1383,7 @@ const IncidentsTab = () => {
       </div>
 
       {filtered.length === 0 && (
-        <div className="text-center py-16">
+        <div className="text-center py-12">
           <p className="text-[13px] text-text-muted">No incidents match the current filters.</p>
         </div>
       )}

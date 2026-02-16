@@ -611,9 +611,7 @@ const DetailPanel = ({
 /* ─── Page ─── */
 const IntegrationsPage = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("data-source");
-  const [selected, setSelected] = useState<Integration | null>(
-    integrations.find((i) => i.subscribed && i.enabled) ?? null
-  );
+  const [selected, setSelected] = useState<Integration | null>(null);
   const [marketplaceUrl, setMarketplaceUrl] = useState("");
   const [marketplaceUrlFocused, setMarketplaceUrlFocused] = useState(false);
   const [mcpServerUrl, setMcpServerUrl] = useState("");
