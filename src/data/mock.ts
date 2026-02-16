@@ -1223,7 +1223,7 @@ export const pipelines: Pipeline[] = [
   {
     id: "pip-001",
     name: "Market Data ETL",
-    description: "Ingests marketplace pricing data from Amazon, Shopify, and competitor feeds. Normalizes and deduplicates across sources.",
+    description: "Ingests pricing data. Normalizes, deduplicates, and runs LightGBM time-series forecasting.",
     schedule: "Every 1h",
     status: "active",
     lastRun: "2026-02-13T13:00:00Z",
@@ -1232,10 +1232,19 @@ export const pipelines: Pipeline[] = [
     outputFormat: "Parquet",
     code: `import pyarrow as pa
 import pyarrow.parquet as pq
-from kraken_sdk import DataSource, Pipeline, Output
+import numpy as np
+import lightgbm as lgb
+from kraken-sdk import DataSource, Pipeline, Output
 from datetime import datetime, timedelta
 
 pipeline = Pipeline("market-data-etl")
+
+FEATURE_COLS = [
+    "lag_1h", "lag_24h", "lag_7d",
+    "rolling_mean_24h", "rolling_std_24h",
+    "hour", "day_of_week", "is_weekend",
+]
+
 
 @pipeline.transform
 def extract_and_normalize(ctx):
@@ -1243,7 +1252,6 @@ def extract_and_normalize(ctx):
     amazon = ctx.source("amazon-sp-api")
     shopify = ctx.source("shopify")
 
-    # Pull last hour of pricing updates
     cutoff = datetime.utcnow() - timedelta(hours=1)
 
     amazon_prices = amazon.query(
@@ -1258,7 +1266,6 @@ def extract_and_normalize(ctx):
         params={"cutoff": cutoff},
     )
 
-    # Normalize to common schema
     normalized = []
     for row in amazon_prices:
         normalized.append({
@@ -1294,19 +1301,83 @@ def deduplicate(ctx, records):
     return list(seen.values())
 
 
-@pipeline.output
-def write_parquet(ctx, records):
-    """Write normalized pricing data to Parquet."""
-    table = pa.Table.from_pylist(records)
-    output_path = ctx.storage.path("market-data", partition_by="date")
+@pipeline.transform
+def engineer_features(ctx, records):
+    """Build lag, rolling, and seasonality features for forecasting."""
+    history = ctx.source("postgres").query(
+        "SELECT product_id, price_usd, timestamp "
+        "FROM market_prices "
+        "ORDER BY timestamp DESC LIMIT 2000"
+    )
 
-    pq.write_table(table, output_path, compression="snappy")
-    ctx.log(f"Wrote {len(records)} records to {output_path}")
+    prices = {r["product_id"]: [] for r in history}
+    for r in history:
+        prices[r["product_id"]].append(r["price_usd"])
+
+    featured = []
+    for record in records:
+        pid = record["product_id"]
+        ts = datetime.fromisoformat(record["timestamp"])
+        series = prices.get(pid, [])
+        arr = np.array(series, dtype=float) if series else np.array([record["price_usd"]])
+
+        featured.append({
+            **record,
+            "lag_1h": float(arr[0]) if len(arr) > 0 else record["price_usd"],
+            "lag_24h": float(arr[23]) if len(arr) > 23 else record["price_usd"],
+            "lag_7d": float(arr[167]) if len(arr) > 167 else record["price_usd"],
+            "rolling_mean_24h": float(np.mean(arr[:24])),
+            "rolling_std_24h": float(np.std(arr[:24])),
+            "hour": ts.hour,
+            "day_of_week": ts.weekday(),
+            "is_weekend": int(ts.weekday() >= 5),
+        })
+
+    ctx.log(f"Engineered {len(FEATURE_COLS)} features for {len(featured)} records")
+    return featured
+
+
+@pipeline.transform
+def forecast_prices(ctx, records):
+    """Generate 24h price forecasts using LightGBM."""
+    model = ctx.model("price-forecast-lgbm")
+
+    forecasts = []
+    for record in records:
+        features = np.array([[record[f] for f in FEATURE_COLS]])
+        pred = model.predict(features)[0]
+
+        forecasts.append({
+            "product_id": record["product_id"],
+            "source": record["source"],
+            "current_price": record["price_usd"],
+            "forecast_24h": round(float(pred), 2),
+            "delta_pct": round((pred - record["price_usd"]) / record["price_usd"] * 100, 2),
+            "model_version": model.version,
+            "timestamp": record["timestamp"],
+        })
+
+    ctx.log(f"Generated forecasts for {len(forecasts)} products")
+    return {"records": records, "forecasts": forecasts}
+
+
+@pipeline.output
+def write_parquet(ctx, result):
+    """Write normalized data and forecasts to separate partitions."""
+    pricing = pa.Table.from_pylist(result["records"])
+    pricing_path = ctx.storage.path("market-data", partition_by="date")
+    pq.write_table(pricing, pricing_path, compression="snappy")
+
+    forecasts = pa.Table.from_pylist(result["forecasts"])
+    forecast_path = ctx.storage.path("market-data/forecasts", partition_by="date")
+    pq.write_table(forecasts, forecast_path, compression="snappy")
+
+    ctx.log(f"Wrote {len(result['records'])} prices, {len(result['forecasts'])} forecasts")
 
     return Output(
-        records_written=len(records),
-        path=output_path,
-        schema=table.schema,
+        records_written=len(result["records"]),
+        forecasts_written=len(result["forecasts"]),
+        paths={"pricing": pricing_path, "forecasts": forecast_path},
     )
 
 
@@ -1332,7 +1403,7 @@ def convert_currency(amount, currency, target="USD"):
     nextRun: "2026-02-13T14:30:00Z",
     avgDuration: 45000,
     outputFormat: "Parquet",
-    code: `from kraken_sdk import Pipeline, DataSource, Output
+    code: `from kraken-sdk import Pipeline, DataSource, Output
 import pyarrow as pa
 import pyarrow.parquet as pq
 from collections import defaultdict
@@ -1450,7 +1521,7 @@ def write_output(ctx, result):
     code: `import pyarrow as pa
 import pyarrow.parquet as pq
 import numpy as np
-from kraken_sdk import Pipeline, Output
+from kraken-sdk import Pipeline, Output
 from datetime import datetime, timedelta
 
 pipeline = Pipeline("sales-aggregation")
@@ -1569,8 +1640,8 @@ def write_output(ctx, categories):
     outputFormat: "Parquet",
     code: `import pyarrow as pa
 import pyarrow.parquet as pq
-from kraken_sdk import Pipeline, Output
-from kraken_sdk.nlp import sentiment_score, extract_entities
+from kraken-sdk import Pipeline, Output
+from kraken-sdk.nlp import sentiment_score, extract_entities
 
 pipeline = Pipeline("customer-feedback-ingest")
 
