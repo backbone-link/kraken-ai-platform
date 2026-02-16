@@ -56,7 +56,7 @@ const humanize = (s: string) =>
 
 const PLATFORM_VERSION = "0.0.11";
 const PLATFORM_COMMIT = "c825ccd";
-const SDK_VERSION = "1.4.0";
+const SDK_VERSION = "0.0.4";
 const SDK_COMMIT = "a3f19b2";
 const PYTHON_RUNTIME = "3.12";
 

@@ -370,7 +370,7 @@ const DetailPanel = ({
 						{/* Footer */}
 						<div className="flex items-center justify-between px-5 py-2.5 border-t border-border-subtle bg-bg-primary/50 shrink-0">
 							<span className="text-[10px] font-mono text-text-muted">
-								Python 3.12 · Kraken SDK v1.4.0
+								Python 3.12 · Kraken SDK v0.0.4
 							</span>
 							<div className="flex items-center gap-3">
 								<span className="text-[10px] font-mono text-text-muted">
