@@ -1307,13 +1307,18 @@ const IncidentCard = ({
 
 // --- Incidents Tab ---
 
-const IncidentsTab = () => {
+const IncidentsTab = ({ selectedAgentId }: { selectedAgentId: string | null }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  const agentFiltered = useMemo(
+    () => selectedAgentId ? incidents.filter((i) => i.sourceAgent.id === selectedAgentId) : incidents,
+    [selectedAgentId]
+  );
+
   const filtered = useMemo(() => {
-    let items = [...incidents];
+    let items = [...agentFiltered];
     if (severityFilter !== "all") {
       items = items.filter((i) => i.severity === severityFilter);
     }
@@ -1327,13 +1332,13 @@ const IncidentsTab = () => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
     return items;
-  }, [severityFilter, statusFilter]);
+  }, [agentFiltered, severityFilter, statusFilter]);
 
-  const openCount = incidents.filter((i) => !isResolved(i.status)).length;
-  const criticalOpenCount = incidents.filter((i) => !isResolved(i.status) && i.severity === "critical").length;
-  const resolvedCount = incidents.filter((i) => isResolved(i.status)).length;
+  const openCount = agentFiltered.filter((i) => !isResolved(i.status)).length;
+  const criticalOpenCount = agentFiltered.filter((i) => !isResolved(i.status) && i.severity === "critical").length;
+  const resolvedCount = agentFiltered.filter((i) => isResolved(i.status)).length;
 
-  const resolvedIncidents = incidents.filter((i) => i.resolvedAt);
+  const resolvedIncidents = agentFiltered.filter((i) => i.resolvedAt);
   const mttr = resolvedIncidents.length > 0
     ? resolvedIncidents.reduce((sum, i) => sum + (new Date(i.resolvedAt!).getTime() - new Date(i.createdAt).getTime()), 0) / resolvedIncidents.length
     : 0;
@@ -1521,7 +1526,7 @@ const ObservabilityPage = () => {
           <AuditLogTab selectedAgentId={selectedAgentId} />
         )}
         {activeBottomTab === "incidents" && (
-          <IncidentsTab />
+          <IncidentsTab selectedAgentId={selectedAgentId} />
         )}
       </div>
 
