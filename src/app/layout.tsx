@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Instrument_Serif } from "next/font/google";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ChatPanel } from "@/components/chat-panel";
+import { AuthGate } from "@/components/auth-gate";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,12 +37,14 @@ const RootLayout = ({
     <body
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased grain`}
     >
-      <Sidebar />
-      <ChatPanel />
-      <main className="ml-[240px] min-h-screen">
-        <div className="max-w-[1400px] mx-auto px-8 py-8">{children}</div>
-      </main>
-      <Analytics />
+      <AuthGate>
+        <Sidebar />
+        <ChatPanel />
+        <main className="ml-[240px] min-h-screen">
+          <div className="max-w-[1400px] mx-auto px-8 py-8">{children}</div>
+        </main>
+        <Analytics />
+      </AuthGate>
     </body>
   </html>
 );
